@@ -1,15 +1,15 @@
 class Spreadsheet {
 #cells = null;
 #dependants = null;
-#grid = null;
-#parser = null;
+#values = null;
+	#grid = null;
 #container = null;
 
 constructor (grid) {
 this.#cells = new Map();
 this.#dependants = new Map();
-this.#grid = new Grid(this);
-this.#parser = math.parser();
+this.#values = new Map();
+	this.#grid = new Grid(this);
 
 const container = document.createElement("div");
 container.role = "region";
@@ -35,21 +35,28 @@ this.#grid.announceCell();
 get grid () {return this.#grid;}
 
 setCellContents (name, text) {
-const input = text.charAt(0) === "="? this.#createFormula(name, text.slice(1))
+const cell = this.#cells.has(name)? this.#cells.get(name) : {valueOf: () => this.#cellValue(name)};
+const input = text.charAt(0) === "="? createFormula(name, text.slice(1))
 : text;
-this.#cells.set(name, {name: name, input});
+cell.name = name;
+cell.input = input;
+
+if (input instanceof Object) {
+const code = cell.code = input.compile();
+} // if
 } // setCellContents
 
-#createFormula (name, text) {
-const formula = math.parse(text);
-const symbols = getSymbols(formula);
+#cellValue (name) {
+this.#cells.get(name).input;
+} // #cellValue
 
-console.log(`name: ${name}, text: ${text}\nvariables: `, symbols);
-return formula;
-} // createFormula
 
 
 } // class Spreadsheet
+
+function createFormula (name, text) {
+return math.parse(text);
+} // createFormula
 
 function getSymbols (node) {
 return node.filter(node => node.type === "SymbolNode").map(node => node.name.trim());

@@ -8,17 +8,10 @@ class Grid {
 ["ArrowLeft", {command: () => this.currentCell = this.#previousCellInRow()}],
 ["ArrowDown", {command: () => this.currentCell = this.#nextCellInColumn()}],
 ["ArrowUp", {command: () => this.currentCell = this.#previousCellInColumn()}],
-["F2", {command: () => {
-//this.currentCell.setAttribute("contentEditable", "plaintext-only");
-this.currentCell.dataset.editing = true;
-	const text = this.currentCell.textContent;
-	this.currentCell.textContent = "";
-	this.currentCell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
-	this.currentCell.querySelector("input").focus();
-statusMessage("editing:");
-}}],
+["F2", {command: () => this.#startEditing()}],
+["=", {command: () => this.#startEditing()}],
 ["Enter", {command: () => this.#endEditing()}],
-["Escape", {command: () => this.currentCell.removeAttribute("contentEditable")}],
+["Escape", {command: () => this.#endEditing()}],
 ]); // keymap
 
 constructor (spreadsheet, nRows = 100, nColumns = 26) {
@@ -62,6 +55,8 @@ this.#grid.addEventListener("keyup", e => this.#keyupHandler(e.key));
 #keyupHandler (key) {
 const currentCell = this.currentCell;
 const navigationKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+const endOfInput = ["Enter", "F2", "Escape"];
+
 //if (key === "Tab") this.#grid.blur();
 console.log("keyup: ", this.currentCell);
 if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key)) return true;
@@ -74,22 +69,18 @@ console.log("keyup: exec", key);
 if (this.currentCell !== currentCell) this.announceCell();
 } // #keyupHandler
 
-#inputHandler (e) {
-const endOfInput = ["Enter", "Escape", "F2"];
-//console.log("event: ", e);
-if (e.inputType === "insertLineBreak") {
-const text = this.currentCell.textContent.trim();
-this.currentCell.innerHTML = "";
-this.currentCell.textContent = text;
-console.log(`html: ${this.currentCell.innerHTML}\ntext: ${text}\n`);
-this.currentCell.removeAttribute("contentEditable");
-this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
-this.#grid.focus();
-statusMessage("end editing.");
-} // if
-} // #inputHandler
+
+#startEditing () {
+this.currentCell.dataset.editing = true;
+	const text = this.currentCell.textContent;
+	this.currentCell.textContent = "";
+	this.currentCell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
+	this.currentCell.querySelector("input").focus();
+//statusMessage("editing:");
+} // #startEditing
 
 #endEditing () {
+if (not(this.currentCell.hasAttribute("data-editing"))) return;
 const text = this.currentCell.querySelector("input").value;
 this.currentCell.innerHTML = "";
 this.currentCell.textContent = text;
