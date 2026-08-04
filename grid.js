@@ -58,11 +58,11 @@ const navigationKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 const endOfInput = ["Enter", "F2", "Escape"];
 
 //if (key === "Tab") this.#grid.blur();
-console.log("keyup: ", this.currentCell);
+//console.log("keyup: ", this.currentCell);
 if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key)) return true;
 
 if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) {
-console.log("keyup: exec", key);
+//console.log("keyup: exec", key);
 	this.#executeCommand(this.#keymap.get(key).command);
 } // if
 
@@ -83,10 +83,8 @@ this.currentCell.dataset.editing = true;
 if (not(this.currentCell.hasAttribute("data-editing"))) return;
 const text = this.currentCell.querySelector("input").value;
 this.currentCell.innerHTML = "";
-this.currentCell.textContent = text;
-console.log(`html: ${this.currentCell.innerHTML}\ntext: ${text}\n`);
 this.currentCell.removeAttribute("data-editing");
-this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+this.currentCell.textContent = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
 this.#grid.focus();
 statusMessage("end editing.");
 } // #endEditing

@@ -1,12 +1,12 @@
 class Spreadsheet {
-#cells = null;
+#cells = new Map();
 #dependants = null;
 #values = null;
 	#grid = null;
 #container = null;
 
 constructor (grid) {
-this.#cells = new Map();
+//this.#cells = new Map();
 this.#dependants = new Map();
 this.#values = new Map();
 	this.#grid = new Grid(this);
@@ -40,14 +40,19 @@ const input = text.charAt(0) === "="? createFormula(name, text.slice(1))
 : text;
 cell.name = name;
 cell.input = input;
+console.log("setCell: ", name, ", ", input);
+console.log("- cell: ", cell);
 
 if (input instanceof Object) {
 const code = cell.code = input.compile();
 } // if
+this.#cells.set(name, cell);
+return cell.valueOf();
+
 } // setCellContents
 
 #cellValue (name) {
-this.#cells.get(name).input;
+return this.#cells.get(name).input;
 } // #cellValue
 
 
