@@ -14,8 +14,9 @@ class Grid {
 ["Escape", {command: () => this.#endEditing()}],
 ]); // keymap
 
-constructor (spreadsheet, nRows = 100, nColumns = 26) {
-if (not(spreadsheet instanceof Spreadsheet)) throw new Error("first argument to Grid() must be a Spreadsheet object");
+constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
+if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a Spreadsheet object");
+if (not(spreadsheet instanceof Spreadsheet)) throw new Error("second argument to Grid() must be a Spreadsheet object");
 
 const grid = this.#grid = document.createElement("table");
 this.#spreadsheet = spreadsheet;
@@ -84,7 +85,8 @@ if (not(this.currentCell.hasAttribute("data-editing"))) return;
 const text = this.currentCell.querySelector("input").value;
 this.currentCell.innerHTML = "";
 this.currentCell.removeAttribute("data-editing");
-this.currentCell.textContent = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+const modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+
 this.#grid.focus();
 statusMessage("end editing.");
 } // #endEditing
@@ -147,3 +149,9 @@ return previous? previous.children[index] : this.currentCell;
 
 } // class Grid
 
+function labelToCoordinates (label) {
+	label = label.trim().toLowerCase();
+	const c = "abcdefghijklmnopqrstuvwxyz".indexOf(label.charAt(0));
+	const r = Number.parseInt(label.slice(1));
+return [r,c];
+} // labelToCoordinates
