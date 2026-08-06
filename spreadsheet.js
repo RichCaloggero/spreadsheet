@@ -10,11 +10,11 @@ constructor () {
 } // constructor
 
 setCellContents (name, input, oldInput = "") {
-	input = input.toString();
-	oldInput = oldInput.toString();
-	this.#replayQueue.push ({name, input, oldInput});
+input = input.toString();
+oldInput = oldInput.toString();
+this.#replayQueue.push ({name, input, oldInput});
 
-	const cell = this.#cells.has(name)? this.#cells.get(name)
+const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
 name, input,
 precedents: new Set(),
@@ -28,71 +28,95 @@ this.#cleanupDependencies(cell);
 if (isFormula(input)) {
 cell.input = createFormula(input.slice(1));
 cell.code = cell.input.compile();
-for (const s of getSymbols(cell.input)) {
-cell.precedents.add(s);
-this.#dependentsOf(s).add(name);
+for (const symbolName of getSymbols(cell.input)) {
+cell.precedents.add(symbolName);
+this.#dependentsOf(symbolName).add(name);
 } // for
 
 } else{
 cell.input = input;
 cell.code = null;
 cell.value = isNaN(Number(input))? input.toString() : Number(input);
-	} // if
+} // if
 this.#cells.set(name, cell);
 
-console.log("cell: ", cell);
+console.log(
+`precedentsOf(${name}): `, this.#precedentsOf(name),
+`dependentsOf(${name})}: `, this.#dependentsOf(name)
+);
+
 // find dirty cells
 const dirty = this.#computeDirtySet(name);
 //console.log("dirty: ", dirty);
 
 const sorted = this.#topologicalSort(dirty);
-console.log("sorted: ", dirty);
+console.log("sorted: ", sorted);
 
 for (const name of sorted) {
-	this.#evaluate(this.#cells.get(name));
+this.#evaluate(this.#cells.get(name));
 } // for
 
-
-return [...sorted].map(name => [name, this.#cells.get(name).value]);
+return [...sorted.values()].map(name => [name, this.#cells.get(name).value]);
 } // setCellContents
 
 #computeDirtySet (name) {
 const dirty = new Set([name]);
 
 for (const s of dirty) {
-  for (const d of this.#dependentsOf(s)) dirty.add(d);
+for (const d of this.#dependentsOf(s)) dirty.add(d);
 } // for
 
 return dirty;
 } // #computeDirtySet
 
+#topologicalSort (dirty) {
+const order = [];
+const inDegree = new Map();
+for (const name of dirty) inDegree.set(name, this.#precedentsOf(name).intersection(dirty).size);
+console.log("inDegree: ", inDegree);
+
+const queue = [...dirty.values()].filter(name => inDegree.get(name) === 0);
+console.log("queue: ", queue);
+
+while (queue.length > 0) {
+const name = queue.shift();
+order.push(name);
+
+	for (const dep of this.#dependentsOf(name)) {
+if (not(dirty.has(dep))) continue;
+inDegree.set(dep, inDegree.get(dep) - 1);
+if (inDegree.get(dep) === 0) queue.push(dep);
+} // for
+	} // while queue.length
+
+return order;
+} // #topologicalSort
+
 #evaluate (cell) {
 if (cell.hasFormula) {
-	const scope = this.#createScope(cell.precedents);
+const scope = this.#createScope(cell.precedents);
 cell.value = cell.	code.evaluate(scope);
 return cell.value;
 } else {
 return cell.value;
-	} // if
+} // if
 } // #evaluate
 
 #createScope (names) {
 const scope = new Map();
 for (const name of names) {
 const cell = this.#cells.get(name);
-	scope.set(name, cell? Number(cell.value) : 0);
+scope.set(name, cell? Number(cell.value) : 0);
 } // for
 
 return scope;
 } // #createScope
 
-	#topologicalSort (cells) {
-return cells; // dummy for now
-} // #topologicalSort
 
-cellValue (name) {
-return this.#cells.get(name).input;
-} // #cellValue
+
+#precedentsOf (name) {
+return this.#cells.get(name).precedents;
+} // #precedentsOf
 
 #dependentsOf(name) {
 if (not(this.#dependents.has(name))) this.#dependents.set(name, new Set());
