@@ -15,9 +15,13 @@
 
 <script>
 const s = new Spreadsheet();
-
 console.log(`a2 = "a1/2": `, s.setCellContents("a2", "=a1/2"));
 console.log(`a1 = 26: `, s.setCellContents("a1", 26));
+
+const g = new Grid(document, s);
+document.querySelector(".spreadsheet").appendChild(g.dom);
+
+
 
 function statusMessage (text, remove = false) {
 const status = document.querySelector(".status");

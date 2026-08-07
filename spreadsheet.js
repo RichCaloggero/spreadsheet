@@ -9,6 +9,15 @@ class Spreadsheet {
 constructor () {
 } // constructor
 
+get allCells () {
+return this.#cells.keys();
+} // allCells
+
+cellContents (name) {
+const cell = this.#cells.get(name);
+	return {name: cell.name, value: cell.value, formula: cell.hasFormula? cell.input.toString() : ""};
+} // cellContents
+
 setCellContents (name, input, oldInput = "") {
 input = input.toString();
 oldInput = oldInput.toString();
@@ -56,7 +65,7 @@ for (const name of sorted) {
 this.#evaluate(this.#cells.get(name));
 } // for
 
-return [...sorted.values()].map(name => [name, this.#cells.get(name).value]);
+return [...sorted.values()];
 } // setCellContents
 
 #computeDirtySet (name) {

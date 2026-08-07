@@ -11,11 +11,11 @@ class Grid {
 ["F2", {command: () => this.#startEditing()}],
 ["=", {command: () => this.#startEditing()}],
 ["Enter", {command: () => this.#endEditing()}],
-["Escape", {command: () => this.#endEditing()}],
+["Escape", {command: () => this.#endEditing("cancel")}],
 ]); // keymap
 
 constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
-if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a Spreadsheet object");
+if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
 if (not(spreadsheet instanceof Spreadsheet)) throw new Error("second argument to Grid() must be a Spreadsheet object");
 
 const grid = this.#grid = document.createElement("table");
@@ -26,9 +26,10 @@ const row = document.createElement("tr");
 
 for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
-cell.role = i === 0? "columnheader"
-: j === 0? "rowheader"
-: "gridcell";
+cell.role = "gridcell";
+	//cell.role = i === 0? "columnheader"
+//: j === 0? "rowheader"
+//: "gridcell";
 cell.innerHTML = "&nbsp";
 cell.tabIndex = -1;
 row.appendChild(cell);
@@ -41,6 +42,17 @@ grid.role = grid;
 grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
 this.#enableNavigation();
+
+for (const name of spreadsheet.allCells) {
+	const data = spreadsheet.cellContents(name);
+this.#setCellContents(name, data.value, data.formula);
+} // for
+
+this.announceCell(this.currentCell);
+
+setTimeout(() => {
+	grid.focus();
+}, 50);
 } // constructor
 
 get dom() {return this.#grid;}
@@ -67,42 +79,76 @@ if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) 
 	this.#executeCommand(this.#keymap.get(key).command);
 } // if
 
-if (this.currentCell !== currentCell) this.announceCell();
+if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
 } // #keyupHandler
 
 
 #startEditing () {
-this.currentCell.dataset.editing = true;
-	const text = this.currentCell.textContent;
-	this.currentCell.textContent = "";
-	this.currentCell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
-	this.currentCell.querySelector("input").focus();
+const cell = this.currentCell;
+cell.dataset.editing = true;
+	const text = cell.dataset.formula? cell.dataset.formula : cell.textContent;
+	cell.textContent = "";
+	cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
+	cell.querySelector("input").focus();
 //statusMessage("editing:");
 } // #startEditing
 
-#endEditing () {
-if (not(this.currentCell.hasAttribute("data-editing"))) return;
-const text = this.currentCell.querySelector("input").value;
-this.currentCell.innerHTML = "";
-this.currentCell.removeAttribute("data-editing");
-const modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+#endEditing (cancel = false) {
+let modified;
 
+if (not(this.currentCell.hasAttribute("data-editing"))) return;
+if (not(cancel)) {
+	const text = this.currentCell.querySelector("input").value;
+this.currentCell.innerHTML = "";
+modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+} else {
+modified = [this.#cellLabel(this.currentCell)];
+} // if
+
+for (const name of modified) {
+	const data = this.spreadsheet.cellContents(name);
+	this.#setCellContents(data.name, data.value, data.formula);
+} // for
+
+this.currentCell.removeAttribute("data-editing");
 this.#grid.focus();
 statusMessage("end editing.");
 } // #endEditing
+
+#setCellContents (label, value, formula = "") {
+console.log("grid.setCellContents: ", label, value);
+const cell = this.#labelToCell(label);
+cell.textContent = value.toString();
+cell.dataset.formula = formula;
+} // #setCellContents
 
 #executeCommand (command) {
 command();
 } // executeCommand
 
-announceCell () {
-const cell = this.currentCell;
-statusMessage(this.#cellLabel(cell));
+announceCell (cell) {
+statusMessage(`${this.#cellLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
 } // announceCell
 
 #cellLabel (cell) {
 return `${this.#columnLabel(cell)}${this.#rowLabel(cell)}`;
 } // #cellLabel
+
+#labelToCell (label) {
+label = label.trim().toLowerCase();
+const result = label.match(/^([a-z]+)([0-9]+)$/);
+console.log("- result: ", result);
+
+if (not(result)) throw new Error(`bad cell label: ${label}`);
+const column = "abcdefghijklmnopqrstuvwxyz".indexOf(result[1]);
+const row = Number(result[2]) - 1;
+		
+const $row = this.#grid.children[row];
+const $cell = $row.children[column];
+console.log("labelToCell: ", row, column, $row, $cell);
+
+return $cell;
+} // #labelToCell
 
 #rowLabel (cell) {
 return this.#rowIndex(cell)+1;
