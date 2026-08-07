@@ -15,7 +15,8 @@
 
 <script>
 const s = new Spreadsheet();
-console.log(`a2 = "a1/2": `, s.setCellContents("a2", "=a1/2"));
+console.log("creating two cells directly in the model:");
+console.log(`b1 = "a1/2": `, s.setCellContents("a2", "=a1/2"));
 console.log(`a1 = 26: `, s.setCellContents("a1", 26));
 
 const g = new Grid(document, s);
