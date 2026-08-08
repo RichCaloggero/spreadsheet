@@ -1,0 +1,124 @@
+<!doctype html>
+<head>
+<meta charset="utf-8">
+<title>Spreadsheet</title>
+</head>
+<body>
+<table class="spreadsheet">
+
+</table>
+
+<div class="status" role="status"></div>
+
+<script>
+const keymap = new Map([
+["ArrowRight", {command: nextCellInRow}],
+["ArrowLeft", {command: previousCellInRow}],
+["ArrowDown", {command: nextCellInColumn}],
+["ArrowUp", {command: previousCellInColumn}],
+]); // keymap
+
+const view = initializeView(document.querySelector(".spreadsheet"));
+
+function initializeView (grid) {
+createGrid(grid, 100,26);
+enableNavigation(grid, keydownHandler);
+return grid;
+} // initializeView
+
+function createGrid (grid, nRows, nCols) {
+for (let i=0; i<nRows; i++) {
+const row = document.createElement("tr");
+
+for (let j=0; j<nCols; j++) {
+const cell = document.createElement("td");
+cell.role = i === 0? "columnheader"
+: j === 0? "rowheader"
+: "gridcell";
+cell.innerHTML = "&nbsp";
+cell.tabIndex = -1;
+row.appendChild(cell);
+} // for column
+
+grid.appendChild(row);
+} // for row
+
+grid.role = grid;
+grid.ariaActiveDescendantElement = grid.querySelector("td");
+grid.tabIndex = 0;
+grid.focus();
+
+return grid;
+} // createGrid
+
+function enableNavigation (grid, handler) {
+grid.addEventListener("keydown", e => handler(e.key, grid));
+} // enableNavigation
+
+function keydownHandler (key, grid) {
+const currentCell = grid.ariaActiveDescendantElement;
+if (key === "Tab") grid.blur();
+else if (keymap.has(key) && keymap.get(key).command) keymap.get(key).command(grid, currentCell, key);
+else insertCellContent(key, grid.ariaActiveDescendantElement);
+
+if (grid.ariaActiveDescendantElement !== currentCell) announceCell(grid);
+} // keydownHandler
+
+function announceCell (grid) {
+const current = grid.ariaActiveDescendantElement;
+statusMessage(`${columnLabel(current)}${rowLabel(current)}`);
+} // announceCell
+
+function rowLabel (cell) {
+return rowIndex(cell)+1;
+} // rowLabel
+
+function columnLabel (cell) {
+return "abcdefghijklmnopqrstuvwxyz".charAt(columnIndex(cell));
+} // colunLabel
+
+function rowIndex (cell) {
+const rowList = [...cell.parentElement.parentElement.children];
+const row = cell.parentElement;
+return rowList.indexOf(row);
+} // rowIndex
+
+function columnIndex (cell) {
+const cellList = [...cell.parentElement.children];
+return cellList.indexOf(cell);
+} // columnIndex
+
+
+
+function nextCellInRow (grid, current, key) {
+return grid.ariaActiveDescendantElement = current.nextSibling? current.nextSibling : current;
+} // nextCellInRow
+
+function previousCellInRow (grid, current, key) {
+return grid.ariaActiveDescendantElement = current.previousSibling? current.previousSibling : current;
+} // previousCellInRow
+
+function nextCellInColumn (grid, current, key) {
+const rowList = [...current.parentElement.parentElement.children];
+const nextRow = rowIndex(current)+1;
+return grid.ariaActiveDescendantElement = nextRow < rowList.length? rowList[nextRow].children[columnIndex(current)]
+: current;
+} // nextCellInColumn
+
+function previousCellInColumn (grid, current, key) {
+const rowList = [...current.parentElement.parentElement.children];
+const previousRow = rowIndex(current)-1;
+return grid.ariaActiveDescendantElement = previousRow >= 0? rowList[previousRow].children[columnIndex(current)]
+: current;
+} // previousCellInColumn
+
+function statusMessage (text, remove = false) {
+const status = document.querySelector(".status");
+status.textContent = text;
+if (remove) setTimeout(() => status.textContent = "", 7000);
+} // statusMessage
+
+</script>
+
+</body>
+</html>

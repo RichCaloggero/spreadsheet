@@ -10,13 +10,21 @@
 <div class="status" role="status"></div>
 
 <script src="math.min.js"></script>
+<script src="key.js"></script>
 <script src="grid.js"></script>
 <script src="spreadsheet.js"></script>
 
 <script>
+const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
 const s = new Spreadsheet();
-console.log(`b1 = "a1/2": `, s.setCellContents("b1", "=a1/2"));
-console.log(`a1 = 26: `, s.setCellContents("a1", 26));
+//console.log(`b1 = "a1/2": `, s.setCellContents("b1", "=a1/2"));
+//console.log(`a1 = 26: `, s.setCellContents("a1", 26));
+
+for (const key in monthNames) {
+const cellLabel = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;
+s.setCellContents(cellLabel, monthNames[key]);
+} // for
 
 const g = new Grid(document, s);
 document.querySelector(".spreadsheet").appendChild(g.dom);

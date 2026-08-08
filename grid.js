@@ -1,18 +1,25 @@
 class Grid {
 #grid = null;
-#cellContents = "";
 #spreadsheet = null;
 
 #keymap = new Map([
-["ArrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
-["ArrowLeft", {command: () => this.currentCell = this.#previousCellInRow()}],
-["ArrowDown", {command: () => this.currentCell = this.#nextCellInColumn()}],
-["ArrowUp", {command: () => this.currentCell = this.#previousCellInColumn()}],
-["F2", {command: () => this.#startEditing()}],
+// navigation
+	["arrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
+["arrowLeft", {command: () => this.currentCell = this.#previousCellInRow()}],
+["arrowDown", {command: () => this.currentCell = this.#nextCellInColumn()}],
+["arrowUp", {command: () => this.currentCell = this.#previousCellInColumn()}],
+
+// editing
+["f2", {command: () => this.#startEditing()}],
 ["=", {command: () => this.#startEditing()}],
-["Enter", {command: () => this.#endEditing()}],
-["Escape", {command: () => this.#endEditing("cancel")}],
-["Delete", {command: () => this.#deleteCell(this.currentCell)}],
+["enter", {command: () => this.#endEditing()}],
+["escape", {command: () => this.#endEditing("cancel")}],
+["delete", {command: () => this.#deleteCell(this.currentCell)}],
+
+// row and column tagging
+["control+alt+shift+c", {command: () => this.#markColumns()}],
+["control+alt+shift+r", {command: () => this.#markRows()}],
+
 ]); // keymap
 
 constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
@@ -70,26 +77,32 @@ cell.innerHTML = "";
 } // deleteCell
 
 #enableNavigation () {
-this.#grid.addEventListener("keydown", e => this.#keydownHandler(e.key));
+this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 } // #enableNavigation
 
-#keydownHandler (key) {
+#keydownHandler (e) {
+const key = new Key(e).toString();
+if (key.length === 0) return false;
+console.log("keydown: ", key);
 const currentCell = this.currentCell;
-const navigationKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
-const endOfInput = ["Enter", "F2", "Escape"];
+const navigationKeys = ["arrowLeft", "arrowRight", "arrowUp", "arrowDown"];
+const endOfInput = ["enter", "f2", "escape"];
 
-//if (key === "Tab") this.#grid.blur();
+//if (key === "tab") this.#grid.blur();
 //console.log("keydown: ", key, this.currentCell);
 if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key)) return true;
 
 if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) {
 //console.log("keydown: exec", key);
-	this.#executeCommand(this.#keymap.get(key).command);
+	this.#executeCommand(this.#keymap.get(key).command, e);
 } // if
 
 if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
 } // #keydownHandler
 
+#executeCommand (command, e) {
+command(e);
+} // executeCommand
 
 #startEditing () {
 const cell = this.currentCell;
@@ -130,9 +143,6 @@ cell.textContent = value.toString();
 cell.dataset.formula = formula;
 } // #setCellContents
 
-#executeCommand (command) {
-command();
-} // executeCommand
 
 announceCell (cell) {
 statusMessage(`${this.#cellLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
@@ -200,6 +210,15 @@ const index = this.#columnIndex(this.currentCell);
 return previous? previous.children[index] : this.currentCell;
 } // #previousCellInColumn
 
+#markColumns () {
+console.log("markColumns");
+
+} // #markColumns
+
+#markRows () {
+console.log("markRows");
+
+} // #markRows
 
 } // class Grid
 
