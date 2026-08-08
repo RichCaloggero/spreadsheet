@@ -1,6 +1,7 @@
 class Grid {
 #grid = null;
 #spreadsheet = null;
+#markMode = [];
 
 #keymap = new Map([
 // navigation
@@ -17,8 +18,8 @@ class Grid {
 ["delete", {command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
-["control+alt+shift+c", {command: () => this.#markColumns()}],
-["control+alt+shift+r", {command: () => this.#markRows()}],
+["control+alt+shift+c", {command: () => this.#markColumns(this.currentCell)}],
+["control+alt+shift+r", {command: () => this.#markRows(this.currentCell)}],
 
 ]); // keymap
 
@@ -210,14 +211,14 @@ const index = this.#columnIndex(this.currentCell);
 return previous? previous.children[index] : this.currentCell;
 } // #previousCellInColumn
 
-#markColumns () {
-console.log("markColumns");
-
+#markColumns (cell) {
+//console.log("markColumns");
+getColumn(cell).forEach(cell => cell.role = cell.role === "gridcell"? "rowheader" : "gridcell");
 } // #markColumns
 
-#markRows () {
+#markRows (cell) {
 console.log("markRows");
-
+getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader" : "gridcell");
 } // #markRows
 
 } // class Grid
@@ -228,3 +229,12 @@ function labelToCoordinates (label) {
 	const r = Number.parseInt(label.slice(1));
 return [r,c];
 } // labelToCoordinates
+
+function $row (cell) {return cell.parentElement;}
+function $grid (cell) {return $row(cell).parentElement;}
+function getRow (cell) {return [...$row(cell).children];}
+
+function getColumn (cell) {
+const index = getRow(cell).indexOf(cell);
+	return [...$grid(cell).children].map($row => $row.children[index]);
+} // getColumn
