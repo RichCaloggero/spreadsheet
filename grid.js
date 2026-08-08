@@ -1,11 +1,12 @@
 class Grid {
 #grid = null;
 #spreadsheet = null;
-#markMode = [];
-
+#range = {};
+#mark = null;
+	
 #keymap = new Map([
 // navigation
-	["arrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
+["arrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
 ["arrowLeft", {command: () => this.currentCell = this.#previousCellInRow()}],
 ["arrowDown", {command: () => this.currentCell = this.#nextCellInColumn()}],
 ["arrowUp", {command: () => this.currentCell = this.#previousCellInColumn()}],
@@ -18,8 +19,11 @@ class Grid {
 ["delete", {command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
-["control+alt+shift+c", {command: () => this.#markColumns(this.currentCell)}],
-["control+alt+shift+r", {command: () => this.#markRows(this.currentCell)}],
+["control+alt+shift+c", {command: () => this.#setRowHeaders(this.currentCell)}],
+["control+alt+shift+r", {command: () => this.#setColumnHeaders(this.currentCell)}],
+
+// ranges
+["control+space", {command: () => this.#defineRange(this.currentCell)}],
 
 ]); // keymap
 
@@ -36,7 +40,7 @@ const row = document.createElement("tr");
 for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
 cell.role = "gridcell";
-	//cell.role = i === 0? "columnheader"
+//cell.role = i === 0? "columnheader"
 //: j === 0? "rowheader"
 //: "gridcell";
 cell.innerHTML = "&nbsp";
@@ -53,14 +57,14 @@ grid.tabIndex = 0;
 this.#enableNavigation();
 
 for (const name of spreadsheet.allCells) {
-	const data = spreadsheet.cellContents(name);
+const data = spreadsheet.cellContents(name);
 this.#setCellContents(name, data.value, data.formula);
 } // for
 
 this.announceCell(this.currentCell);
 
 setTimeout(() => {
-	grid.focus();
+grid.focus();
 }, 50);
 } // constructor
 
@@ -84,7 +88,7 @@ this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 #keydownHandler (e) {
 const key = new Key(e).toString();
 if (key.length === 0) return false;
-console.log("keydown: ", key);
+//console.log("keydown: ", key);
 const currentCell = this.currentCell;
 const navigationKeys = ["arrowLeft", "arrowRight", "arrowUp", "arrowDown"];
 const endOfInput = ["enter", "f2", "escape"];
@@ -95,7 +99,7 @@ if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key
 
 if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) {
 //console.log("keydown: exec", key);
-	this.#executeCommand(this.#keymap.get(key).command, e);
+this.#executeCommand(this.#keymap.get(key).command, e);
 } // if
 
 if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
@@ -108,10 +112,10 @@ command(e);
 #startEditing () {
 const cell = this.currentCell;
 cell.dataset.editing = true;
-	const text = cell.dataset.formula? cell.dataset.formula : cell.textContent;
-	cell.textContent = "";
-	cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
-	cell.querySelector("input").focus();
+const text = cell.dataset.formula? cell.dataset.formula : cell.textContent;
+cell.textContent = "";
+cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
+cell.querySelector("input").focus();
 //statusMessage("editing:");
 } // #startEditing
 
@@ -120,7 +124,7 @@ let modified;
 
 if (not(this.currentCell.hasAttribute("data-editing"))) return;
 if (not(cancel)) {
-	const text = this.currentCell.querySelector("input").value;
+const text = this.currentCell.querySelector("input").value;
 this.currentCell.innerHTML = "";
 modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
 } else {
@@ -128,8 +132,8 @@ modified = [this.#cellLabel(this.currentCell)];
 } // if
 
 for (const name of modified) {
-	const data = this.spreadsheet.cellContents(name);
-	this.#setCellContents(data.name, data.value, data.formula);
+const data = this.spreadsheet.cellContents(name);
+this.#setCellContents(data.name, data.value, data.formula);
 } // for
 
 this.currentCell.removeAttribute("data-editing");
@@ -211,22 +215,41 @@ const index = this.#columnIndex(this.currentCell);
 return previous? previous.children[index] : this.currentCell;
 } // #previousCellInColumn
 
-#markColumns (cell) {
+#setColumnHeaders (cell) {
 //console.log("markColumns");
 getColumn(cell).forEach(cell => cell.role = cell.role === "gridcell"? "rowheader" : "gridcell");
-} // #markColumns
+} // #setColumnHeaders
 
-#markRows (cell) {
+#setRowHeaders (cell) {
 console.log("markRows");
 getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader" : "gridcell");
-} // #markRows
+} // #setRowHeaders
+
+#defineRange (cell) {
+if (this.#mark) {
+const range = getRange(this.#mark, cell);
+this.#range = range?
+{type: range.type, range: range.range.map(cell => this.#cellLabel(cell))}
+	: {};
+console.log("grid.range: ", this.#range);
+	this.#mark = null;
+	
+	if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
+	else statusMessage("invalid range");
+	
+	} else {
+	this.#mark = cell;
+this.#range = {};
+		statusMessage("mark set");
+} // if
+} // #defineRange
 
 } // class Grid
 
 function labelToCoordinates (label) {
-	label = label.trim().toLowerCase();
-	const c = "abcdefghijklmnopqrstuvwxyz".indexOf(label.charAt(0));
-	const r = Number.parseInt(label.slice(1));
+label = label.trim().toLowerCase();
+const c = "abcdefghijklmnopqrstuvwxyz".indexOf(label.charAt(0));
+const r = Number.parseInt(label.slice(1));
 return [r,c];
 } // labelToCoordinates
 
@@ -236,5 +259,36 @@ function getRow (cell) {return [...$row(cell).children];}
 
 function getColumn (cell) {
 const index = getRow(cell).indexOf(cell);
-	return [...$grid(cell).children].map($row => $row.children[index]);
+return [...$grid(cell).children].map($row => $row.children[index]);
 } // getColumn
+
+function getRange (cell1, cell2) {
+const cells = isSameRow(cell1, cell2)? getRow(cell1)
+: isSameColumn(cell1, cell2)? getColumn(cell1)
+	: [];
+
+const type = isSameRow(cell1, cell2)? "row" : "column";
+
+	return cells.length > 0?
+	{type, range: cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))} : null;
+} // getRange
+
+function isSameRow (cell1, cell2) {
+return 	$row(cell1) === $row(cell2);
+} // isSameRow
+
+function isSameColumn (cell1, cell2) {
+	return getRow(cell1).indexOf(cell1) === getRow(cell2).indexOf(cell2);
+} // isSameColumn
+
+function cellsBetween (a, index1, index2) {
+if (index1 > index2) {
+	const t = index1;
+	index1 = index2;
+	index2 = t;
+} // if
+
+return a.filter((cell, i) => i >= index1 && i <= index2);
+} // cellsBetween
+
+function not(x) {return !!x;}
