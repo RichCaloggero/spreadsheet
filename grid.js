@@ -12,6 +12,7 @@ class Grid {
 ["=", {command: () => this.#startEditing()}],
 ["Enter", {command: () => this.#endEditing()}],
 ["Escape", {command: () => this.#endEditing("cancel")}],
+["Delete", () => this.#deleteCellContents(this.currentCell)],
 ]); // keymap
 
 constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
@@ -60,6 +61,13 @@ get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
 
 get spreadsheet () {return this.#spreadsheet;}
+
+#deleteCellContents (cell) {
+this.#spreadsheet.deleteCell(cellLabel(cell));
+cell.dataset.formula = "";
+cell.textContent = "";
+cell.innerHTML = "";
+} // deleteCellContents
 
 #enableNavigation () {
 this.#grid.addEventListener("keyup", e => this.#keyupHandler(e.key));
@@ -142,7 +150,7 @@ console.log("- result: ", result);
 if (not(result)) throw new Error(`bad cell label: ${label}`);
 const column = "abcdefghijklmnopqrstuvwxyz".indexOf(result[1]);
 const row = Number(result[2]) - 1;
-		
+
 const $row = this.#grid.children[row];
 const $cell = $row.children[column];
 console.log("labelToCell: ", row, column, $row, $cell);

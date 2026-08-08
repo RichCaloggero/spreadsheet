@@ -1,9 +1,7 @@
 class Spreadsheet {
 #cells = new Map();
-#dependents = new Map();
-#values = new Map();
-#grid = null;
-#container = null;
+#precedents = new Map();
+	#dependents = new Map();
 #replayQueue = [];
 
 constructor () {
@@ -26,11 +24,11 @@ this.#replayQueue.push ({name, input, oldInput});
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
 name, input,
-precedents: new Set(),
 code: null,
 get hasFormula () {return not(this.code === null);},
 value: ""
 }; // cell
+this.#cells.set(name, cell);
 
 this.#cleanupDependencies(cell);
 
@@ -38,16 +36,15 @@ if (isFormula(input)) {
 cell.input = createFormula(input.slice(1));
 cell.code = cell.input.compile();
 for (const symbolName of getSymbols(cell.input)) {
-cell.precedents.add(symbolName);
-this.#dependentsOf(symbolName).add(name);
+this.#precedentsOf(name).add(symbolName);
+this.#dependentsOf(symbolName).add(cell.name);
 } // for
 
 } else{
 cell.input = input;
 cell.code = null;
-cell.value = isNaN(Number(input))? input.toString() : Number(input);
+cell.value = input;
 } // if
-this.#cells.set(name, cell);
 
 console.log(
 `precedentsOf(${name}): `, this.#precedentsOf(name),
@@ -103,12 +100,17 @@ return order;
 
 #evaluate (cell) {
 if (cell.hasFormula) {
-const scope = this.#createScope(cell.precedents);
-cell.value = cell.	code.evaluate(scope);
-return cell.value;
-} else {
-return cell.value;
+const scope = this.#createScope(this.#precedentsOf(cell.name));
+try {
+	cell.value = cell.	code.evaluate(scope);
+} catch (e) {
+	cell.value = 0;
+} // try
+
 } // if
+
+//return Number(cell.value) === NaN? cell.value.toString() : Number(cell.value);
+return cell.value;
 } // #evaluate
 
 #createScope (names) {
@@ -124,7 +126,9 @@ return scope;
 
 
 #precedentsOf (name) {
-return this.#cells.get(name).precedents;
+if (not(this.#precedents.has(name))) this.#precedents.set(name, new Set());
+
+return this.#precedents.get(name);
 } // #precedentsOf
 
 #dependentsOf(name) {
@@ -133,23 +137,43 @@ if (not(this.#dependents.has(name))) this.#dependents.set(name, new Set());
 return this.#dependents.get(name);
 } // #dependentsOf
 
-#cleanupDependencies(cell) {
+#cleanupDependencies(cellName) {
 // Tear down old edges unconditionally, from stored state.
-for (const s of cell.precedents) {
-this.#dependentsOf(s).delete(cell.name);
+for (const name of this.#precedentsOf(cellName)) {
+this.#dependentsOf(name).delete(cellName);
 } // for
-cell.precedents.clear();
+this.#precedentsOf(cellName).clear();
 } // #ccleanupDependencies
 
+deleteCell (name) {
+const cell = this.#cells.get(name);
+	this.#cleanupDependencies(cell);
+this.#cells.delete(name);
+} // #deleteCell
 
 } // class Spreadsheet
+
+/// Spreadsheet Functions
+
+functions = new Map([
+	["sum", (...l) => l.reduce((a,x) => a+x)]
+	]);
+
 
 function createFormula (text) {
 return math.parse(text);
 } // createFormula
 
+function getFunctions (node) {
+return node
+.filter((node, p) => node.type === "SymbolNode" && p === "fn")
+	.map(node => node.name.trim());
+} // getFunctions
+
 function getSymbols (node) {
-return node.filter(node => node.type === "SymbolNode").map(node => node.name.trim());
+return node
+	.filter(node => node.type === "SymbolNode")
+	.map(node => node.name.trim());
 } // getSymbols
 
 function isFormula (text) {return text.charAt(0) === "=";}
