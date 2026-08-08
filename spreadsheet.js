@@ -46,17 +46,14 @@ cell.code = null;
 cell.value = input;
 } // if
 
-console.log(
-`precedentsOf(${name}): `, this.#precedentsOf(name),
-`dependentsOf(${name})}: `, this.#dependentsOf(name)
-);
+//console.log(`precedentsOf(${name}): `, this.#precedentsOf(name),`dependentsOf(${name})}: `, this.#dependentsOf(name));
 
 // find dirty cells
 const dirty = this.#computeDirtySet(name);
 //console.log("dirty: ", dirty);
 
 const sorted = this.#topologicalSort(dirty);
-console.log("sorted: ", sorted);
+//console.log("sorted: ", sorted);
 
 for (const name of sorted) {
 this.#evaluate(this.#cells.get(name));
@@ -79,10 +76,10 @@ return dirty;
 const order = [];
 const inDegree = new Map();
 for (const name of dirty) inDegree.set(name, this.#precedentsOf(name).intersection(dirty).size);
-console.log("inDegree: ", inDegree);
+//console.log("inDegree: ", inDegree);
 
 const queue = [...dirty.values()].filter(name => inDegree.get(name) === 0);
-console.log("queue: ", queue);
+//console.log("queue: ", queue);
 
 while (queue.length > 0) {
 const name = queue.shift();
@@ -147,7 +144,7 @@ this.#precedentsOf(cellName).clear();
 
 deleteCell (name) {
 const cell = this.#cells.get(name);
-	this.#cleanupDependencies(cell);
+	this.#cleanupDependencies(name);
 this.#cells.delete(name);
 } // #deleteCell
 

@@ -12,7 +12,7 @@ class Grid {
 ["=", {command: () => this.#startEditing()}],
 ["Enter", {command: () => this.#endEditing()}],
 ["Escape", {command: () => this.#endEditing("cancel")}],
-["Delete", () => this.#deleteCellContents(this.currentCell)],
+["Delete", {command: () => this.#deleteCell(this.currentCell)}],
 ]); // keymap
 
 constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
@@ -62,33 +62,33 @@ set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
 
 get spreadsheet () {return this.#spreadsheet;}
 
-#deleteCellContents (cell) {
-this.#spreadsheet.deleteCell(cellLabel(cell));
-cell.dataset.formula = "";
+#deleteCell (cell) {
+this.#spreadsheet.deleteCell(this.#cellLabel(cell));
+cell.removeAttribute("data-formula");
 cell.textContent = "";
 cell.innerHTML = "";
-} // deleteCellContents
+} // deleteCell
 
 #enableNavigation () {
-this.#grid.addEventListener("keyup", e => this.#keyupHandler(e.key));
+this.#grid.addEventListener("keydown", e => this.#keydownHandler(e.key));
 } // #enableNavigation
 
-#keyupHandler (key) {
+#keydownHandler (key) {
 const currentCell = this.currentCell;
 const navigationKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 const endOfInput = ["Enter", "F2", "Escape"];
 
 //if (key === "Tab") this.#grid.blur();
-//console.log("keyup: ", this.currentCell);
+//console.log("keydown: ", key, this.currentCell);
 if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key)) return true;
 
 if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) {
-//console.log("keyup: exec", key);
+//console.log("keydown: exec", key);
 	this.#executeCommand(this.#keymap.get(key).command);
 } // if
 
 if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
-} // #keyupHandler
+} // #keydownHandler
 
 
 #startEditing () {
@@ -124,7 +124,7 @@ statusMessage("end editing.");
 } // #endEditing
 
 #setCellContents (label, value, formula = "") {
-console.log("grid.setCellContents: ", label, value);
+//console.log("grid.setCellContents: ", label, value);
 const cell = this.#labelToCell(label);
 cell.textContent = value.toString();
 cell.dataset.formula = formula;
@@ -145,7 +145,7 @@ return `${this.#columnLabel(cell)}${this.#rowLabel(cell)}`;
 #labelToCell (label) {
 label = label.trim().toLowerCase();
 const result = label.match(/^([a-z]+)([0-9]+)$/);
-console.log("- result: ", result);
+//console.log("- result: ", result);
 
 if (not(result)) throw new Error(`bad cell label: ${label}`);
 const column = "abcdefghijklmnopqrstuvwxyz".indexOf(result[1]);
@@ -153,7 +153,7 @@ const row = Number(result[2]) - 1;
 
 const $row = this.#grid.children[row];
 const $cell = $row.children[column];
-console.log("labelToCell: ", row, column, $row, $cell);
+//console.log("labelToCell: ", row, column, $row, $cell);
 
 return $cell;
 } // #labelToCell
