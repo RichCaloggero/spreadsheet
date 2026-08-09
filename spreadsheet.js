@@ -17,7 +17,7 @@ const cell = this.#cells.get(name);
 	: null;
 } // cellContents
 
-setCellContents (name, input, oldInput = "") {
+setCellContents (name, input, range, oldInput = "") {
 input = input.toString();
 oldInput = oldInput.toString();
 this.#replayQueue.push ({name, input, oldInput});
@@ -36,7 +36,7 @@ this.#cleanupDependencies(cell);
 if (isFormula(input)) {
 cell.input = createFormula(input.slice(1));
 cell.code = cell.input.compile();
-for (const symbolName of getSymbols(cell.input)) {
+for (const symbolName of getSymbols(cell.input).concat(range)) {
 this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for
@@ -168,9 +168,10 @@ return node
 	.map(node => node.name.trim());
 } // getFunctions
 
+// getSymbols excludes function symbol nodes and range nodes
 function getSymbols (node) {
 return node
-	.filter(node => node.type === "SymbolNode")
+	.filter((node, path, parent) => node.type === "SymbolNode" && path !== "fn" && parent.type !== "RangeNode")
 	.map(node => node.name.trim());
 } // getSymbols
 

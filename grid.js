@@ -1,7 +1,7 @@
 class Grid {
 #grid = null;
 #spreadsheet = null;
-#range = {};
+#range = this.#emptyRange();
 #mark = null;
 	
 #keymap = new Map([
@@ -13,7 +13,13 @@ class Grid {
 
 // editing
 ["f2", {command: () => this.#startEditing()}],
-["=", {command: () => this.#startEditing()}],
+["=", {command: () => this.#startEditing("=")}],
+["alt+=", {command: () => {
+	if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
+else statusMessage("Autosum has no selection.");
+} // if
+}],
+
 ["enter", {command: () => this.#endEditing()}],
 ["escape", {command: () => {
 	if (this.#mark) {
@@ -31,7 +37,6 @@ class Grid {
 
 // ranges
 ["control+space", {command: () => this.#defineRange(this.currentCell)}],
-
 ]); // keymap
 
 constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
@@ -115,7 +120,7 @@ if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
 command(e);
 } // executeCommand
 
-#startEditing () {
+#startEditing (overrideText) {
 if (this.#mark) {
 	statusMessage("cannot modify during selection...");
 return;
@@ -123,7 +128,8 @@ return;
 
 const cell = this.currentCell;
 cell.dataset.editing = true;
-const text = cell.dataset.formula? cell.dataset.formula : cell.textContent;
+const text = overrideText? overrideText
+: cell.dataset.formula? cell.dataset.formula : cell.textContent;
 cell.textContent = "";
 cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
 cell.querySelector("input").focus();
@@ -242,7 +248,7 @@ if (this.#mark) {
 const range = getRange(this.#mark, cell);
 this.#range = range?
 {type: range.type, range: range.range.map(cell => this.#cellLabel(cell))}
-	: {};
+	: this.#emptyRange();
 console.log("grid.range: ", this.#range);
 	this.#mark = null;
 	
@@ -251,10 +257,14 @@ console.log("grid.range: ", this.#range);
 	
 	} else {
 	this.#mark = cell;
-this.#range = {};
+this.#range = this.#emptyRange();
 		statusMessage("mark set");
 } // if
 } // #defineRange
+
+#emptyRange () {
+return {type: "empty", range: []};
+} // #emptyRange
 
 } // class Grid
 
@@ -303,4 +313,10 @@ if (index1 > index2) {
 return a.filter((cell, i) => i >= index1 && i <= index2);
 } // cellsBetween
 
+function expandRange (range) {
+// just stick in contents for now
+	return range.range.join(", ");
+} // expandRange
+
+	
 function not(x) {return !!x;}
