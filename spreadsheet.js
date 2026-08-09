@@ -13,7 +13,8 @@ return this.#cells.keys();
 
 cellContents (name) {
 const cell = this.#cells.get(name);
-	return {name: cell.name, value: cell.value, formula: cell.hasFormula? cell.input.toString() : ""};
+	return cell? {name: cell.name, value: cell.value, formula: cell.hasFormula? cell.input.toString() : ""}
+	: null;
 } // cellContents
 
 setCellContents (name, input, oldInput = "") {

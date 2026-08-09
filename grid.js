@@ -15,7 +15,14 @@ class Grid {
 ["f2", {command: () => this.#startEditing()}],
 ["=", {command: () => this.#startEditing()}],
 ["enter", {command: () => this.#endEditing()}],
-["escape", {command: () => this.#endEditing("cancel")}],
+["escape", {command: () => {
+	if (this.#mark) {
+		this.#mark = null;
+		statusMessage("Selection canceled.");
+	} else {
+		this.#endEditing("cancel");
+	} // if
+	}}],
 ["delete", {command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
@@ -71,7 +78,6 @@ grid.focus();
 get dom() {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
-
 get spreadsheet () {return this.#spreadsheet;}
 
 #deleteCell (cell) {
@@ -110,6 +116,11 @@ command(e);
 } // executeCommand
 
 #startEditing () {
+if (this.#mark) {
+	statusMessage("cannot modify during selection...");
+return;
+} // if
+
 const cell = this.currentCell;
 cell.dataset.editing = true;
 const text = cell.dataset.formula? cell.dataset.formula : cell.textContent;
@@ -126,14 +137,15 @@ if (not(this.currentCell.hasAttribute("data-editing"))) return;
 if (not(cancel)) {
 const text = this.currentCell.querySelector("input").value;
 this.currentCell.innerHTML = "";
-modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text);
+modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text, this.#range.range);
 } else {
 modified = [this.#cellLabel(this.currentCell)];
-} // if
+console.log("endEditing (canceled): ", modified);
+	} // if
 
 for (const name of modified) {
 const data = this.spreadsheet.cellContents(name);
-this.#setCellContents(data.name, data.value, data.formula);
+if (data) this.#setCellContents(data.name, data.value, data.formula);
 } // for
 
 this.currentCell.removeAttribute("data-editing");
