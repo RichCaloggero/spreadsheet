@@ -86,11 +86,135 @@ set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
 get spreadsheet () {return this.#spreadsheet;}
 
 #deleteCell (cell) {
-this.#spreadsheet.deleteCell(this.#cellLabel(cell));
+this.#spreadsheet.deleteCell(this.#cellToLabel(cell));
 cell.removeAttribute("data-formula");
 cell.textContent = "";
 cell.innerHTML = "";
 } // deleteCell
+
+
+#startEditing (overrideText) {
+if (this.#mark) {
+	statusMessage("cannot modify during selection...");
+return;
+} // if
+
+const cell = this.currentCell;
+cell.dataset.editing = true;
+const text = overrideText? overrideText
+: cell.dataset.formula? cell.dataset.formula : cell.textContent;
+cell.textContent = "";
+cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
+cell.querySelector("input").focus();
+//statusMessage("editing:");
+} // #startEditing
+
+#endEditing (cancel = false) {
+let modified;
+
+if (not(this.currentCell.hasAttribute("data-editing"))) return;
+if (not(cancel)) {
+const text = this.currentCell.querySelector("input").value;
+this.currentCell.innerHTML = "";
+modified = this.#spreadsheet.setCellContents(this.#cellToLabel(this.currentCell), text, this.#range.range);
+} else {
+modified = [this.#cellToLabel(this.currentCell)];
+console.log("endEditing (canceled): ", modified);
+	} // if
+
+for (const name of modified) {
+const data = this.spreadsheet.cellContents(name);
+if (data) this.#setCellContents(data.name, data.value, data.formula);
+} // for
+
+this.currentCell.removeAttribute("data-editing");
+this.#grid.focus();
+statusMessage("end editing.");
+} // #endEditing
+
+#setCellContents (label, value, formula = "") {
+//console.log("grid.setCellContents: ", label, value);
+const cell = this.#labelToCell(label);
+cell.textContent = value.toString();
+cell.dataset.formula = formula;
+} // #setCellContents
+
+
+announceCell (cell) {
+statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
+} // announceCell
+
+#cellToLabel (cell) {
+return formatLabel(this.#row(cell), this.#column(cell));
+} // #cellToLabel
+
+#labelToCell (label) {
+const rows = this.dom.querySelector("tr").parentElement.children;
+const [r, c] = parseLabel(label);
+return rows[r].children[c];
+} // #labelToCell
+
+#row (cell) {
+return cell.parentElement.rowIndex;
+} // row
+
+#column (cell) {
+return cell.cellIndex;
+} // colun
+
+
+#nextCellInRow () {
+const next = this.currentCell.nextElementSibling;
+return next? next : this.currentCell;
+} // #nextCellInRow
+
+#previousCellInRow () {
+const previous = this.currentCell.previousElementSibling;
+return previous? previous : this.currentCell;
+} // #previousCellInRow
+
+#nextCellInColumn () {
+const next = this.currentCell.parentElement.nextElementSibling;
+return next? next.children[this.currentCell.cellIndex] : this.currentCell;
+} // #nextCellInColumn
+
+#previousCellInColumn () {
+const previous = this.currentCell.parentElement.previousElementSibling;
+return previous? previous.children[this.currentCell.cellIndex] : this.currentCell;
+} // #previousCellInColumn
+
+#setColumnHeaders (cell) {
+//console.log("markColumns");
+getColumn(cell).forEach(cell => cell.role = cell.role === "gridcell"? "rowheader" : "gridcell");
+} // #setColumnHeaders
+
+#setRowHeaders (cell) {
+console.log("markRows");
+getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader" : "gridcell");
+} // #setRowHeaders
+
+#defineRange (cell) {
+if (this.#mark) {
+const range = getRange(this.#mark, cell);
+this.#range = range?
+{type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
+	: this.#emptyRange();
+console.log("grid.range: ", this.#range);
+	this.#mark = null;
+	
+	if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
+	else statusMessage("invalid range");
+	
+	} else {
+	this.#mark = cell;
+this.#range = this.#emptyRange();
+		statusMessage("mark set");
+} // if
+} // #defineRange
+
+#emptyRange () {
+return {type: "empty", range: []};
+} // #emptyRange
 
 #enableNavigation () {
 this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
@@ -119,152 +243,6 @@ if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
 #executeCommand (command, e) {
 command(e);
 } // executeCommand
-
-#startEditing (overrideText) {
-if (this.#mark) {
-	statusMessage("cannot modify during selection...");
-return;
-} // if
-
-const cell = this.currentCell;
-cell.dataset.editing = true;
-const text = overrideText? overrideText
-: cell.dataset.formula? cell.dataset.formula : cell.textContent;
-cell.textContent = "";
-cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
-cell.querySelector("input").focus();
-//statusMessage("editing:");
-} // #startEditing
-
-#endEditing (cancel = false) {
-let modified;
-
-if (not(this.currentCell.hasAttribute("data-editing"))) return;
-if (not(cancel)) {
-const text = this.currentCell.querySelector("input").value;
-this.currentCell.innerHTML = "";
-modified = this.#spreadsheet.setCellContents(this.#cellLabel(this.currentCell), text, this.#range.range);
-} else {
-modified = [this.#cellLabel(this.currentCell)];
-console.log("endEditing (canceled): ", modified);
-	} // if
-
-for (const name of modified) {
-const data = this.spreadsheet.cellContents(name);
-if (data) this.#setCellContents(data.name, data.value, data.formula);
-} // for
-
-this.currentCell.removeAttribute("data-editing");
-this.#grid.focus();
-statusMessage("end editing.");
-} // #endEditing
-
-#setCellContents (label, value, formula = "") {
-//console.log("grid.setCellContents: ", label, value);
-const cell = this.#labelToCell(label);
-cell.textContent = value.toString();
-cell.dataset.formula = formula;
-} // #setCellContents
-
-
-announceCell (cell) {
-statusMessage(`${this.#cellLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
-} // announceCell
-
-#cellLabel (cell) {
-return `${this.#columnLabel(cell)}${this.#rowLabel(cell)}`;
-} // #cellLabel
-
-#labelToCell (label) {
-label = label.trim().toLowerCase();
-const result = label.match(/^([a-z]+)([0-9]+)$/);
-//console.log("- result: ", result);
-
-if (not(result)) throw new Error(`bad cell label: ${label}`);
-const column = "abcdefghijklmnopqrstuvwxyz".indexOf(result[1]);
-const row = Number(result[2]) - 1;
-
-const $row = this.#grid.children[row];
-const $cell = $row.children[column];
-//console.log("labelToCell: ", row, column, $row, $cell);
-
-return $cell;
-} // #labelToCell
-
-#rowLabel (cell) {
-return this.#rowIndex(cell)+1;
-} // rowLabel
-
-#columnLabel (cell) {
-return "abcdefghijklmnopqrstuvwxyz".charAt(this.#columnIndex(cell));
-} // colunLabel
-
-#rowIndex (cell) {
-const row = cell.parentElement;
-const rowList = [...row.parentElement.children];
-return rowList.indexOf(row);
-} // #rowIndex
-
-#columnIndex (cell) {
-const cellList = [...cell.parentElement.children];
-return cellList.indexOf(cell);
-} // #columnIndex
-
-
-#nextCellInRow () {
-const next = this.currentCell.nextElementSibling;
-return next? next : this.currentCell;
-} // #nextCellInRow
-
-#previousCellInRow () {
-const previous = this.currentCell.previousElementSibling;
-return previous? previous : this.currentCell;
-} // #previousCellInRow
-
-#nextCellInColumn () {
-const next = this.currentCell.parentElement.nextElementSibling;
-const index = this.#columnIndex(this.currentCell);
-return next? next.children[index] : this.currentCell;
-} // #nextCellInColumn
-
-#previousCellInColumn () {
-const previous = this.currentCell.parentElement.previousElementSibling;
-const index = this.#columnIndex(this.currentCell);
-return previous? previous.children[index] : this.currentCell;
-} // #previousCellInColumn
-
-#setColumnHeaders (cell) {
-//console.log("markColumns");
-getColumn(cell).forEach(cell => cell.role = cell.role === "gridcell"? "rowheader" : "gridcell");
-} // #setColumnHeaders
-
-#setRowHeaders (cell) {
-console.log("markRows");
-getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader" : "gridcell");
-} // #setRowHeaders
-
-#defineRange (cell) {
-if (this.#mark) {
-const range = getRange(this.#mark, cell);
-this.#range = range?
-{type: range.type, range: range.range.map(cell => this.#cellLabel(cell))}
-	: this.#emptyRange();
-console.log("grid.range: ", this.#range);
-	this.#mark = null;
-	
-	if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
-	else statusMessage("invalid range");
-	
-	} else {
-	this.#mark = cell;
-this.#range = this.#emptyRange();
-		statusMessage("mark set");
-} // if
-} // #defineRange
-
-#emptyRange () {
-return {type: "empty", range: []};
-} // #emptyRange
 
 } // class Grid
 
