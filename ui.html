@@ -19,8 +19,6 @@
 const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
 const s = new Spreadsheet();
-//console.log(`b1 = "a1/2": `, s.setCellContents("b1", "=a1/2"));
-//console.log(`a1 = 26: `, s.setCellContents("a1", 26));
 
 for (const key in monthNames) {
 const cellLabel = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;

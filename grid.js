@@ -3,7 +3,7 @@ class Grid {
 #spreadsheet = null;
 #range = this.#emptyRange();
 #mark = null;
-	
+
 #keymap = new Map([
 // navigation
 ["arrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
@@ -13,22 +13,22 @@ class Grid {
 
 // editing
 ["f2", {command: () => this.#startEditing()}],
-["=", {command: () => this.#startEditing("=")}],
+["=", {command: () => this.#startEditing()}],
 ["alt+=", {command: () => {
-	if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
+if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
 else statusMessage("Autosum has no selection.");
 } // if
 }],
 
-["enter", {command: () => this.#endEditing()}],
-["escape", {command: () => {
-	if (this.#mark) {
-		this.#mark = null;
-		statusMessage("Selection canceled.");
-	} else {
-		this.#endEditing("cancel");
-	} // if
-	}}],
+["enter", {editMode: true, command: () => this.#endEditing()}],
+["escape", {editMode: true, command: () => {
+if (this.#mark) {
+this.#mark = null;
+statusMessage("Selection canceled.");
+} else {
+this.#endEditing("cancel");
+} // if
+}}],
 ["delete", {command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
@@ -63,14 +63,14 @@ row.appendChild(cell);
 grid.appendChild(row);
 } // for row
 
-grid.role = grid;
+grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
 this.#enableNavigation();
 
 for (const name of spreadsheet.allCells) {
 const data = spreadsheet.cellContents(name);
-this.#setCellContents(name, data.value, data.formula);
+this.#displayCellContents(name, data.value, data.formula);
 } // for
 
 this.announceCell(this.currentCell);
@@ -80,7 +80,7 @@ grid.focus();
 }, 50);
 } // constructor
 
-get dom() {return this.#grid;}
+get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
 get spreadsheet () {return this.#spreadsheet;}
@@ -95,49 +95,57 @@ cell.innerHTML = "";
 
 #startEditing (overrideText) {
 if (this.#mark) {
-	statusMessage("cannot modify during selection...");
+statusMessage("cannot modify during selection...");
 return;
 } // if
 
 const cell = this.currentCell;
-cell.dataset.editing = true;
+if (cell.hasAttribute("data-editing")) return;
+cell.setAttribute("data-editing", true);
+cell.setAttribute("data-old", cell.textContent);
+
 const text = overrideText? overrideText
-: cell.dataset.formula? cell.dataset.formula : cell.textContent;
+: cell.dataset.formula? cell.dataset.formula
+: cell.textContent;
 cell.textContent = "";
-cell.insertAdjacentHTML("beforeEnd", `<input type="text" value="${text}">`);
+cell.insertAdjacentHTML("beforeEnd", `<input type="text">`);
+cell.querySelector("input").value = text;
 cell.querySelector("input").focus();
 //statusMessage("editing:");
 } // #startEditing
 
 #endEditing (cancel = false) {
-let modified;
+const cell = this.currentCell;
+if (not(cell.hasAttribute("data-editing"))) return;
 
-if (not(this.currentCell.hasAttribute("data-editing"))) return;
-if (not(cancel)) {
-const text = this.currentCell.querySelector("input").value;
-this.currentCell.innerHTML = "";
-modified = this.#spreadsheet.setCellContents(this.#cellToLabel(this.currentCell), text, this.#range.range);
+const input = cell.querySelector("input");
+const text = input.value;
+cell.innerHTML = "";
+
+if (Boolean(cancel)) {
+	cell.textContent = cell.getAttribute("data-old");
+
 } else {
-modified = [this.#cellToLabel(this.currentCell)];
-console.log("endEditing (canceled): ", modified);
-	} // if
-
+const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, this.#range.range);
 for (const name of modified) {
 const data = this.spreadsheet.cellContents(name);
-if (data) this.#setCellContents(data.name, data.value, data.formula);
+if (data) this.#displayCellContents(data.name, data.value, data.formula);
 } // for
+} // if
 
-this.currentCell.removeAttribute("data-editing");
+cell.removeAttribute("data-editing");
+cell.removeAttribute("data-old");
 this.#grid.focus();
 statusMessage("end editing.");
 } // #endEditing
 
-#setCellContents (label, value, formula = "") {
-//console.log("grid.setCellContents: ", label, value);
+#displayCellContents (label, value, formula = "") {
+//console.log("grid.displayCellContents: ", label, value);
 const cell = this.#labelToCell(label);
 cell.textContent = value.toString();
-cell.dataset.formula = formula;
-} // #setCellContents
+if (formula && formula.length > 0) cell.setAttribute("data-formula", formula);
+else cell.removeAttribute("formula");
+} // #displayCellContents
 
 
 announceCell (cell) {
@@ -198,17 +206,17 @@ if (this.#mark) {
 const range = getRange(this.#mark, cell);
 this.#range = range?
 {type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
-	: this.#emptyRange();
+: this.#emptyRange();
 console.log("grid.range: ", this.#range);
-	this.#mark = null;
-	
-	if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
-	else statusMessage("invalid range");
-	
-	} else {
-	this.#mark = cell;
+this.#mark = null;
+
+if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
+else statusMessage("invalid range");
+
+} else {
+this.#mark = cell;
 this.#range = this.#emptyRange();
-		statusMessage("mark set");
+statusMessage("mark set");
 } // if
 } // #defineRange
 
@@ -224,24 +232,21 @@ this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 const key = new Key(e).toString();
 if (key.length === 0) return false;
 //console.log("keydown: ", key);
-const currentCell = this.currentCell;
-const navigationKeys = ["arrowLeft", "arrowRight", "arrowUp", "arrowDown"];
-const endOfInput = ["enter", "f2", "escape"];
+const cell = this.currentCell;
 
-//if (key === "tab") this.#grid.blur();
 //console.log("keydown: ", key, this.currentCell);
-if (this.currentCell.hasAttribute("data-editing") && navigationKeys.includes(key)) return true;
+if (this.#keymap.has(key) ) {
+const data = this.#keymap.get(key);
+console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
+if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, key);
+else return true;
+	} // if
 
-if (this.#keymap.has(key) && this.#keymap.get(key).command instanceof Function) {
-//console.log("keydown: exec", key);
-this.#executeCommand(this.#keymap.get(key).command, e);
-} // if
-
-if (this.currentCell !== currentCell) this.announceCell(this.currentCell);
+if (cell !== this.currentCell) this.announceCell(this.currentCell);
 } // #keydownHandler
 
-#executeCommand (command, e) {
-command(e);
+#execute (command, key) {
+command(key);
 } // executeCommand
 
 } // class Grid
@@ -265,12 +270,12 @@ return [...$grid(cell).children].map($row => $row.children[index]);
 function getRange (cell1, cell2) {
 const cells = isSameRow(cell1, cell2)? getRow(cell1)
 : isSameColumn(cell1, cell2)? getColumn(cell1)
-	: [];
+: [];
 
 const type = isSameRow(cell1, cell2)? "row" : "column";
 
-	return cells.length > 0?
-	{type, range: cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))} : null;
+return cells.length > 0?
+{type, range: cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))} : null;
 } // getRange
 
 function isSameRow (cell1, cell2) {
@@ -278,14 +283,14 @@ return 	$row(cell1) === $row(cell2);
 } // isSameRow
 
 function isSameColumn (cell1, cell2) {
-	return getRow(cell1).indexOf(cell1) === getRow(cell2).indexOf(cell2);
+return getRow(cell1).indexOf(cell1) === getRow(cell2).indexOf(cell2);
 } // isSameColumn
 
 function cellsBetween (a, index1, index2) {
 if (index1 > index2) {
-	const t = index1;
-	index1 = index2;
-	index2 = t;
+const t = index1;
+index1 = index2;
+index2 = t;
 } // if
 
 return a.filter((cell, i) => i >= index1 && i <= index2);
@@ -293,8 +298,8 @@ return a.filter((cell, i) => i >= index1 && i <= index2);
 
 function expandRange (range) {
 // just stick in contents for now
-	return range.range.join(", ");
+return range.range.join(", ");
 } // expandRange
 
-	
-function not(x) {return !!x;}
+
+function not(x) {return !x;}
