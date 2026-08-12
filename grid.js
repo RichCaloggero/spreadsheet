@@ -6,10 +6,10 @@ class Grid {
 
 #keymap = new Map([
 // navigation
-["arrowRight", {command: () =>  this.currentCell = this.#nextCellInRow()}],
-["arrowLeft", {command: () => this.currentCell = this.#previousCellInRow()}],
-["arrowDown", {command: () => this.currentCell = this.#nextCellInColumn()}],
-["arrowUp", {command: () => this.currentCell = this.#previousCellInColumn()}],
+["arrowRight", {command: () =>  this.#setCurrentCell(this.#nextCellInRow())}],
+["arrowLeft", {command: () => this.#setCurrentCell(this.#previousCellInRow())}],
+["arrowDown", {command: () => this.#setCurrentCell(this.#nextCellInColumn())}],
+["arrowUp", {command: () => this.#setCurrentCell(this.#previousCellInColumn())}],
 
 // editing
 ["f2", {command: () => this.#startEditing()}],
@@ -52,9 +52,6 @@ const row = document.createElement("tr");
 for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
 cell.role = "gridcell";
-//cell.role = i === 0? "columnheader"
-//: j === 0? "rowheader"
-//: "gridcell";
 cell.innerHTML = "&nbsp";
 cell.tabIndex = -1;
 row.appendChild(cell);
@@ -62,6 +59,13 @@ row.appendChild(cell);
 
 grid.appendChild(row);
 } // for row
+
+/*// add header cells
+const headerRow = document.createElement("tr");
+for (let i=0; i<26; i++) headerRow.insertAdjacentHTML("beforeEnd", `<th aria-label="${columnLabels.charAt(i)}"></th>`);
+for (const row of grid.children) row.insertAdjacentHTML("afterBegin", `<th aria-label="${row.rowIndex+1}"></th>`);
+grid.prepend(headerRow);
+*/
 
 grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
@@ -73,17 +77,33 @@ const data = spreadsheet.cellContents(name);
 this.#displayCellContents(name, data.value, data.formula);
 } // for
 
-this.announceCell(this.currentCell);
+this.#unselectAllCells();
 
 setTimeout(() => {
 grid.focus();
+this.announceCell(this.currentCell);
 }, 50);
 } // constructor
 
 get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
-set currentCell (cell) {this.#grid.ariaActiveDescendantElement = cell;}
+
+#setCurrentCell (cell) {
+this.#grid.ariaActiveDescendantElement = cell;
+cell.setAttribute("aria-selected", "true");
+this.#generateDescription(cell);
+} // #setCurrentCell
+
+#unselectAllCells () {this.#allCells().forEach(cell => cell.setAttribute("aria-selected", "false"));}
+
+#allCells (expression) {
+return [...this.#grid.querySelectorAll(`td${expression? expression : ""}`)];
+} // #allCells
+
 get spreadsheet () {return this.#spreadsheet;}
+
+#generateDescription (cell) {
+} // #generateDescription
 
 #deleteCell (cell) {
 this.#spreadsheet.deleteCell(this.#cellToLabel(cell));
@@ -123,7 +143,7 @@ const text = input.value;
 cell.innerHTML = "";
 
 if (Boolean(cancel)) {
-	cell.textContent = cell.getAttribute("data-old");
+cell.textContent = cell.getAttribute("data-old");
 
 } else {
 const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, this.#range.range);
@@ -148,8 +168,9 @@ else cell.removeAttribute("formula");
 } // #displayCellContents
 
 
+
 announceCell (cell) {
-statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
+	statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
 } // announceCell
 
 #cellToLabel (cell) {
@@ -202,7 +223,13 @@ getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader"
 } // #setRowHeaders
 
 #defineRange (cell) {
-if (this.#mark) {
+if (not(this.#mark)) {
+this.#mark = cell;
+this.#range = this.#emptyRange();
+statusMessage("mark set");
+return;
+} // if
+
 const range = getRange(this.#mark, cell);
 this.#range = range?
 {type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
@@ -212,12 +239,6 @@ this.#mark = null;
 
 if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
 else statusMessage("invalid range");
-
-} else {
-this.#mark = cell;
-this.#range = this.#emptyRange();
-statusMessage("mark set");
-} // if
 } // #defineRange
 
 #emptyRange () {
@@ -240,31 +261,27 @@ const data = this.#keymap.get(key);
 console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
 if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, key);
 else return true;
-	} // if
+} // if
 
-if (cell !== this.currentCell) this.announceCell(this.currentCell);
+if (cell === this.currentCell) return;
+
+	cell.setAttribute("aria-selected", "false");
+this.announceCell(this.currentCell);
 } // #keydownHandler
 
 #execute (command, key) {
 command(key);
 } // executeCommand
 
-} // class Grid
+} // # Grid
 
-function labelToCoordinates (label) {
-label = label.trim().toLowerCase();
-const c = "abcdefghijklmnopqrstuvwxyz".indexOf(label.charAt(0));
-const r = Number.parseInt(label.slice(1));
-return [r,c];
-} // labelToCoordinates
 
-function $row (cell) {return cell.parentElement;}
 function $grid (cell) {return $row(cell).parentElement;}
-function getRow (cell) {return [...$row(cell).children];}
+function getRow (cell) {return [...cell.parentElement.children];}
 
 function getColumn (cell) {
-const index = getRow(cell).indexOf(cell);
-return [...$grid(cell).children].map($row => $row.children[index]);
+const index = cell.cellIndex;
+return [...cell.parentElement.parentElement.children].map($row => $row.children[index]);
 } // getColumn
 
 function getRange (cell1, cell2) {
@@ -279,11 +296,11 @@ return cells.length > 0?
 } // getRange
 
 function isSameRow (cell1, cell2) {
-return 	$row(cell1) === $row(cell2);
+return 	cell1.parentElement.rowIndex === cell2.parentElement.rowIndex;
 } // isSameRow
 
 function isSameColumn (cell1, cell2) {
-return getRow(cell1).indexOf(cell1) === getRow(cell2).indexOf(cell2);
+return cell1.cellIndex === cell2.cellIndex;
 } // isSameColumn
 
 function cellsBetween (a, index1, index2) {
