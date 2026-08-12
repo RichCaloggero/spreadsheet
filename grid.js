@@ -32,8 +32,8 @@ this.#endEditing("cancel");
 ["delete", {command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
-["control+alt+shift+c", {command: () => this.#setRowHeaders(this.currentCell)}],
-["control+alt+shift+r", {command: () => this.#setColumnHeaders(this.currentCell)}],
+["control+alt+shift+c", {command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
+["control+alt+shift+r", {command: () => this.#markColumnAsRowHeaders(this.currentCell)}],
 
 // ranges
 ["control+space", {command: () => this.#defineRange(this.currentCell)}],
@@ -146,7 +146,7 @@ if (Boolean(cancel)) {
 cell.textContent = cell.getAttribute("data-old");
 
 } else {
-const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, this.#range.range);
+const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range);
 for (const name of modified) {
 const data = this.spreadsheet.cellContents(name);
 if (data) this.#displayCellContents(data.name, data.value, data.formula);
@@ -212,15 +212,23 @@ const previous = this.currentCell.parentElement.previousElementSibling;
 return previous? previous.children[this.currentCell.cellIndex] : this.currentCell;
 } // #previousCellInColumn
 
-#setColumnHeaders (cell) {
-//console.log("markColumns");
-getColumn(cell).forEach(cell => cell.role = cell.role === "gridcell"? "rowheader" : "gridcell");
-} // #setColumnHeaders
+#markColumnAsRowHeaders (cell) {
+const role = cell.role === "gridcell"? "rowheader" : "gridcell";
 
-#setRowHeaders (cell) {
-console.log("markRows");
-getRow(cell).forEach(cell => cell.role = cell.role === "gridcell"?"columnheader" : "gridcell");
-} // #setRowHeaders
+getColumn(cell).forEach(cell => this.#setRole(cell, role));
+} // #markColumnAsRowHeaders
+
+#markRowAsColumnHeaders (cell) {
+const role = cell.role === "gridcell"? "columnheader" : "gridcell";
+
+getRow(cell).forEach(cell => this.#setRole(cell, role));
+} // #markRowAsColumnHeaders
+
+#setRole (cell, role) {
+cell.role = role;
+console.log("grid.setRole: ", cell, role);
+this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
+} // #setRole
 
 #defineRange (cell) {
 if (not(this.#mark)) {

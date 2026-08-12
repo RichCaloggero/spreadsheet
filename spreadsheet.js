@@ -22,32 +22,38 @@ const names = [];
 
 	for (cell of cells) {
 names.push(cell.name);
-		setInput(cell.name, cell.input);
+		setInput(cell.name, cell.input, cell.role);
 	} // for
 
 	recalculate(names);
 } // load
 
-setCellContents (name, input, range, oldInput) {
+setCellContents (name, input, role = "gridcell", range, oldInput) {
 if (not(name)) {
 	statusMessage ("setCellContents: cell label missing or invalid.");
 } // if
 
-const cell = this.#setInput(name, input, range, oldInput);
+const cell = this.#setInput(name, input, role, range, oldInput);
 console.log("setInput: ", cell);
 
 return this.#recalculate([cell.name]);
 } // setCellContents
 
+setRole (name, role = "gridcell") {
+	if (this.#cells.has(name)) {
+		console.log("spreadsheet.setRole: ", name);
+	this.#cells.get(name).role = role;
+	} // if
+	} // setRole
 
-#setInput (name, input, range = [], oldInput = "") {
+#setInput (name, input, role, range = [], oldInput = "") {
 input = input.toString().trim();
 oldInput = oldInput.toString().trim();
 this.#replayQueue.push ({name, input, oldInput});
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
-name, input,
+name, input, role,
 code: null,
 get hasFormula () {return not(this.code === null);},
 value: ""
