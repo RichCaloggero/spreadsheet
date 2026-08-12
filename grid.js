@@ -258,7 +258,7 @@ const cell = this.currentCell;
 //console.log("keydown: ", key, this.currentCell);
 if (this.#keymap.has(key) ) {
 const data = this.#keymap.get(key);
-console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
+//console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
 if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, key);
 else return true;
 } // if

@@ -17,9 +17,32 @@ const cell = this.#cells.get(name);
 	: null;
 } // cellContents
 
-setCellContents (name, input, range, oldInput = "") {
-input = input.toString();
-oldInput = oldInput.toString();
+load (cells) {
+const names = [];
+
+	for (cell of cells) {
+names.push(cell.name);
+		setInput(cell.name, cell.input);
+	} // for
+
+	recalculate(names);
+} // load
+
+setCellContents (name, input, range, oldInput) {
+if (not(name)) {
+	statusMessage ("setCellContents: cell label missing or invalid.");
+} // if
+
+const cell = this.#setInput(name, input, range, oldInput);
+console.log("setInput: ", cell);
+
+return this.#recalculate([cell.name]);
+} // setCellContents
+
+
+#setInput (name, input, range = [], oldInput = "") {
+input = input.toString().trim();
+oldInput = oldInput.toString().trim();
 this.#replayQueue.push ({name, input, oldInput});
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
@@ -36,7 +59,9 @@ this.#cleanupDependencies(cell);
 if (isFormula(input)) {
 cell.input = createFormula(input.slice(1));
 cell.code = cell.input.compile();
-for (const symbolName of getSymbols(cell.input).concat(range)) {
+console.log("setInput: formula ", cell.code.toString());
+
+	for (const symbolName of getSymbols(cell.input).concat(range)) {
 this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for
@@ -47,10 +72,13 @@ cell.code = null;
 cell.value = input;
 } // if
 
-//console.log(`precedentsOf(${name}): `, this.#precedentsOf(name),`dependentsOf(${name})}: `, this.#dependentsOf(name));
+return cell;
+} // #setInput
 
+#recalculate (names) {
 // find dirty cells
-const dirty = this.#computeDirtySet(name);
+const dirty = names.length > 1? names
+: this.#computeDirtySet(names[0]);
 //console.log("dirty: ", dirty);
 
 const sorted = this.#topologicalSort(dirty);
@@ -61,7 +89,8 @@ this.#evaluate(this.#cells.get(name));
 } // for
 
 return [...sorted.values()];
-} // setCellContents
+} // #recalculate
+
 
 #computeDirtySet (name) {
 const dirty = new Set([name]);
