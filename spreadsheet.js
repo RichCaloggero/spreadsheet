@@ -18,10 +18,10 @@ const cell = this.#cells.get(name);
 } // cellContents
 
 load (entries) {
-	clear();
-	for (data of entries) setInput(data.name, data.input, data.role);
+	this.#clear();
+	for (const data of entries) this.#setInput(data.name, data.input, data.role);
 
-	recalculate(names);
+	this.#recalculate(this.#cells.keys());
 } // load
 
 save () {

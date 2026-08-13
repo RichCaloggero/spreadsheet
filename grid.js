@@ -2,7 +2,7 @@ class Grid {
 #grid = null;
 #spreadsheet = null;
 #ui = null;
-	#range = this.#emptyRange();
+	#range = emptyRange();
 #mark = null;
 
 #keymap = new Map([
@@ -41,7 +41,10 @@ this.#endEditing("cancel");
 
 // load / save
 ["control+s", {command: () => this.#ui.save(this.spreadsheet.save())}],
-["control+o", {command: () => this.#ui.load()}],
+["control+o", {command: () => {
+	this.#ui.load();
+	this.#loadCellsFromModel();
+}}],
 
 ]); // keymap
 
@@ -75,11 +78,10 @@ grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
 this.#enableNavigation();
 
-for (const name of spreadsheet.allCells) {
-this.#displayCellContents(spreadsheet.cellContents(name));
-} // for
 
 this.#unselectAllCells();
+
+this.#loadCellsFromModel();
 
 setTimeout(() => {
 grid.focus();
@@ -87,20 +89,21 @@ this.announceCell(this.currentCell);
 }, 50);
 } // constructor
 
-clear () {
-const cells = [...this.dom.querySelectorAll("td")];
-	console.log(`clearing ${cells.length} cells in grid...`);
+#loadCellsFromModel (names = this.#spreadsheet.allCells) {
+for (const name of names) {
+this.#displayCellContents(this.#spreadsheet.cellContents(name));
+} // for
+} // loadCellsFromModel
 
-cells.forEach(cell => {
-	console.log("removing attributes...");
+
+clear () {
+for (cell of this.dom.querySelectorAll("gd")) {
 	cell.removeAttribute("data-editing");
 			cell.removeAttribute("data-formula");
 cell.role = "gridcell";
 
-	console.log("updating content...");
-	cell.textContent = "";
 		cell.innerHTML = "&nbsp;";
-		}); // forEach cell
+		} // forEach cell
 	
 		this.#mark = null;
 		this.#range = emptyRange();
@@ -167,11 +170,7 @@ if (Boolean(cancel)) {
 cell.textContent = cell.getAttribute("data-old");
 
 } else {
-const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range);
-for (const name of modified) {
-const data = this.spreadsheet.cellContents(name);
-if (data) this.#displayCellContents(data);
-} // for
+this.#loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
 } // if
 
 cell.removeAttribute("data-editing");
@@ -255,7 +254,7 @@ this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
 #defineRange (cell) {
 if (not(this.#mark)) {
 this.#mark = cell;
-this.#range = this.#emptyRange();
+this.#range = emptyRange();
 this.#ui.statusMessage("mark set");
 return;
 } // if
@@ -263,7 +262,7 @@ return;
 const range = getRange(this.#mark, cell);
 this.#range = range?
 {type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
-: this.#emptyRange();
+: emptyRange();
 //console.log("grid.range: ", this.#range);
 this.#mark = null;
 
@@ -271,9 +270,6 @@ if (this.#range.type) this.#ui.statusMessage(`${this.#range.range.length} cells 
 else this.#ui.statusMessage("invalid range");
 } // #defineRange
 
-#emptyRange () {
-return {type: "empty", range: []};
-} // #emptyRange
 
 #enableNavigation () {
 this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
@@ -351,5 +347,8 @@ function expandRange (range) {
 return range.range.join(", ");
 } // expandRange
 
+function emptyRange () {
+return {type: "empty", range: []};
+} // #emptyRange
 
 function not(x) {return !x;}

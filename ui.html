@@ -51,15 +51,16 @@ input.addEventListener("change", async function () {
 const files = [...input.files];
 console.log("reading file ", files[0].name);
 const text = await files[0].text();
+let data;
 try {
-const data = JSON.parse(text);
-g.clear();
-spreadsheet.load(data);
+data = JSON.parse(text);
 } catch (e) {
 statusMessage(`failed to load data from ${files[0].name}`);
+return;
 } // try
 
-document.body.remove(input);
+g.clear();
+s.load(data);
 g.dom.focus();
 }, {once: true}); // change event
 
