@@ -21,7 +21,7 @@ load (entries) {
 	this.#clear();
 	for (const data of entries) this.#setInput(data.name, data.input, data.role);
 
-	this.#recalculate(this.#cells.keys());
+	this.#recalculate([...this.#cells.keys()]);
 } // load
 
 save () {
@@ -46,7 +46,6 @@ return this.#recalculate([cell.name]);
 	this.#cells.clear();
 	this.#precedents.clear();
 	this.#dependents.clear();
-console.log("spreadsheet cleared.");
 } // #clear
 
 setRole (name, role = "gridcell") {
@@ -96,7 +95,7 @@ return cell;
 
 #recalculate (names) {
 // find dirty cells
-const dirty = names.length > 1? names
+const dirty = names.length > 1? new Set(names)
 : this.#computeDirtySet(names[0]);
 //console.log("dirty: ", dirty);
 

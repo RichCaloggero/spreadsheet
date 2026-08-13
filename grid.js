@@ -6,23 +6,25 @@ class Grid {
 #mark = null;
 
 #keymap = new Map([
+["f1", {help: "display keyboard help", command: () => this.displayKeyboardHelp().showModal()}],
+
 // navigation
-["arrowRight", {command: () =>  this.#setCurrentCell(this.#nextCellInRow())}],
-["arrowLeft", {command: () => this.#setCurrentCell(this.#previousCellInRow())}],
-["arrowDown", {command: () => this.#setCurrentCell(this.#nextCellInColumn())}],
-["arrowUp", {command: () => this.#setCurrentCell(this.#previousCellInColumn())}],
+["arrowRight", {help: "move right one cell", command: () =>  this.#setCurrentCell(this.#nextCellInRow())}],
+["arrowLeft", {help: "move one cell left", command: () => this.#setCurrentCell(this.#previousCellInRow())}],
+["arrowDown", {help: "move one cell down", command: () => this.#setCurrentCell(this.#nextCellInColumn())}],
+["arrowUp", {help: "move one cell up", command: () => this.#setCurrentCell(this.#previousCellInColumn())}],
 
 // editing
-["f2", {command: () => this.#startEditing()}],
-["=", {command: () => this.#startEditing("=")}],
-["alt+=", {command: () => {
+["f2", {help: "edit current cell", command: () => this.#startEditing()}],
+//["=", {help: "insert formula command: () => this.#startEditing("=")}],
+["alt+=", {help: "autosum over defined range, if any", command: () => {
 if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
 else this.#ui.statusMessage("Autosum has no selection.");
 } // if
 }],
 
-["enter", {editMode: true, command: () => this.#endEditing()}],
-["escape", {editMode: true, command: () => {
+["enter", {help: "end editing", editMode: true, command: () => this.#endEditing()}],
+["escape", {help: "cancel editing cell or range definition", editMode: true, command: () => {
 if (this.#mark) {
 this.#mark = null;
 this.#ui.statusMessage("Selection canceled.");
@@ -30,21 +32,27 @@ this.#ui.statusMessage("Selection canceled.");
 this.#endEditing("cancel");
 } // if
 }}],
-["delete", {command: () => this.#deleteCell(this.currentCell)}],
+["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
-["control+alt+shift+c", {command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
-["control+alt+shift+r", {command: () => this.#markColumnAsRowHeaders(this.currentCell)}],
+["control+alt+shift+c", {help: "all cells in row become column header cells", command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
+["control+alt+shift+r", {help: "all cells in column become row header cells", command: () => this.#markColumnAsRowHeaders(this.currentCell)}],
 
 // ranges
-["control+space", {command: () => this.#defineRange(this.currentCell)}],
+["control+space", {help: "begin / end marking range", command: () => this.#defineRange(this.currentCell)}],
 
 // load / save
-["control+s", {command: () => this.#ui.save(this.spreadsheet.save())}],
-["control+o", {command: () => {
+["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.save())}],
+["control+o", {help: "load", command: () => {
 	this.#ui.load();
 	this.#loadCellsFromModel();
 }}],
+
+["control+l", {help: "load", command: () => {
+	this.#ui.load();
+	this.#loadCellsFromModel();
+}}],
+
 
 ]); // keymap
 
@@ -107,7 +115,6 @@ cell.role = "gridcell";
 	
 		this.#mark = null;
 		this.#range = emptyRange();
-console.log("grid cleared.");
 } // clear
 
 		get dom () {return this.#grid;}
@@ -275,6 +282,32 @@ else this.#ui.statusMessage("invalid range");
 this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 } // #enableNavigation
 
+displayKeyboardHelp () {
+if (not(this.#ui.document.body.querySelector("#help-dialog")))
+	this.#ui.document.body.insertAdjacentHTML("beforeEnd",
+	`<dialog popover id="help-dialog" closedBy="any">
+<div class="head">
+	<h2>Keyboard Help</h2>
+	<button autofocus onclick="this.parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
+</div><!-- .head -->
+<div class="body">
+<table>
+${[...this.#keymap.entries()].map(entry => {
+	const [key, data] = entry;
+	return `<tr>
+	<th>${data.help}</th>
+	<td>${key}</td>
+	</tr>`;
+}).join("\n")}
+</table></div>
+</div></dialog>
+`); // insertAdjacentHTML
+
+return this.#ui.document.body.querySelector("#help-dialog");
+} // help
+
+
+	
 #keydownHandler (e) {
 const key = new Key(e).toString();
 if (key.length === 0) return false;
