@@ -13,31 +13,41 @@ return this.#cells.keys();
 
 cellContents (name) {
 const cell = this.#cells.get(name);
-	return cell? {name: cell.name, value: cell.value, formula: cell.hasFormula? cell.input.toString() : ""}
+	return cell? {name: cell.name, role: cell.role, input: cell.input, value: cell.value? cell.value : "", hasFormula: cell.hasFormula}
 	: null;
 } // cellContents
 
-load (cells) {
-const names = [];
-
-	for (cell of cells) {
-names.push(cell.name);
-		setInput(cell.name, cell.input, cell.role);
-	} // for
+load (entries) {
+	clear();
+	for (data of entries) setInput(data.name, data.input, data.role);
 
 	recalculate(names);
 } // load
 
-setCellContents (name, input, role = "gridcell", range, oldInput) {
+save () {
+const data = [];
+	for (const cell of this.#cells.values()) data.push({name: cell.name, input: cell.input, value: cell.value, role: cell.role}); 
+
+	return data;
+	} // save
+
+setCellContents (name, input, role, range, oldInput) {
 if (not(name)) {
 	statusMessage ("setCellContents: cell label missing or invalid.");
 } // if
 
 const cell = this.#setInput(name, input, role, range, oldInput);
-console.log("setInput: ", cell);
+//console.log("setInput: ", cell);
 
 return this.#recalculate([cell.name]);
 } // setCellContents
+
+#clear () {
+	this.#cells.clear();
+	this.#precedents.clear();
+	this.#dependents.clear();
+console.log("spreadsheet cleared.");
+} // #clear
 
 setRole (name, role = "gridcell") {
 	if (this.#cells.has(name)) {
@@ -46,7 +56,7 @@ setRole (name, role = "gridcell") {
 	} // if
 	} // setRole
 
-#setInput (name, input, role, range = [], oldInput = "") {
+#setInput (name, input, role = "gridcell", range = [], oldInput = "") {
 input = input.toString().trim();
 oldInput = oldInput.toString().trim();
 this.#replayQueue.push ({name, input, oldInput});
@@ -54,28 +64,31 @@ this.#replayQueue.push ({name, input, oldInput});
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
 name, input, role,
+	formula: "",
 code: null,
 get hasFormula () {return not(this.code === null);},
-value: ""
+value: input
 }; // cell
 this.#cells.set(name, cell);
 
 this.#cleanupDependencies(cell);
 
 if (isFormula(input)) {
-cell.input = createFormula(input.slice(1));
-cell.code = cell.input.compile();
-console.log("setInput: formula ", cell.code.toString());
+cell.formula = createFormula(input.slice(1));
+try {
+	cell.code = cell.formula.compile();
+} catch (e) {
+statusMessage(`cannot parse formula: ${input}`);
+return cell;
+} // try
 
-	for (const symbolName of getSymbols(cell.input).concat(range)) {
+	console.log("setInput: formula ", cell.code.toString());
+
+	for (const symbolName of getSymbols(cell.formula).concat(range)) {
 this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for
 
-} else{
-cell.input = input;
-cell.code = null;
-cell.value = input;
 } // if
 
 return cell;

@@ -1,7 +1,8 @@
 class Grid {
 #grid = null;
 #spreadsheet = null;
-#range = this.#emptyRange();
+#ui = null;
+	#range = this.#emptyRange();
 #mark = null;
 
 #keymap = new Map([
@@ -13,10 +14,10 @@ class Grid {
 
 // editing
 ["f2", {command: () => this.#startEditing()}],
-["=", {command: () => this.#startEditing()}],
+["=", {command: () => this.#startEditing("=")}],
 ["alt+=", {command: () => {
 if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
-else statusMessage("Autosum has no selection.");
+else this.#ui.statusMessage("Autosum has no selection.");
 } // if
 }],
 
@@ -24,7 +25,7 @@ else statusMessage("Autosum has no selection.");
 ["escape", {editMode: true, command: () => {
 if (this.#mark) {
 this.#mark = null;
-statusMessage("Selection canceled.");
+this.#ui.statusMessage("Selection canceled.");
 } else {
 this.#endEditing("cancel");
 } // if
@@ -37,10 +38,18 @@ this.#endEditing("cancel");
 
 // ranges
 ["control+space", {command: () => this.#defineRange(this.currentCell)}],
+
+// load / save
+["control+s", {command: () => this.#ui.save(this.spreadsheet.save())}],
+["control+o", {command: () => this.#ui.load()}],
+
 ]); // keymap
 
-constructor (document, spreadsheet, nRows = 100, nColumns = 26) {
-if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
+constructor (ui, spreadsheet, nRows = 100, nColumns = 26) {
+this.#ui = ui;
+	const document = ui.document;
+
+	if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
 if (not(spreadsheet instanceof Spreadsheet)) throw new Error("second argument to Grid() must be a Spreadsheet object");
 
 const grid = this.#grid = document.createElement("table");
@@ -60,12 +69,6 @@ row.appendChild(cell);
 grid.appendChild(row);
 } // for row
 
-/*// add header cells
-const headerRow = document.createElement("tr");
-for (let i=0; i<26; i++) headerRow.insertAdjacentHTML("beforeEnd", `<th aria-label="${columnLabels.charAt(i)}"></th>`);
-for (const row of grid.children) row.insertAdjacentHTML("afterBegin", `<th aria-label="${row.rowIndex+1}"></th>`);
-grid.prepend(headerRow);
-*/
 
 grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
@@ -73,8 +76,7 @@ grid.tabIndex = 0;
 this.#enableNavigation();
 
 for (const name of spreadsheet.allCells) {
-const data = spreadsheet.cellContents(name);
-this.#displayCellContents(name, data.value, data.formula);
+this.#displayCellContents(spreadsheet.cellContents(name));
 } // for
 
 this.#unselectAllCells();
@@ -85,7 +87,27 @@ this.announceCell(this.currentCell);
 }, 50);
 } // constructor
 
-get dom () {return this.#grid;}
+clear () {
+const cells = [...this.dom.querySelectorAll("td")];
+	console.log(`clearing ${cells.length} cells in grid...`);
+
+cells.forEach(cell => {
+	console.log("removing attributes...");
+	cell.removeAttribute("data-editing");
+			cell.removeAttribute("data-formula");
+cell.role = "gridcell";
+
+	console.log("updating content...");
+	cell.textContent = "";
+		cell.innerHTML = "&nbsp;";
+		}); // forEach cell
+	
+		this.#mark = null;
+		this.#range = emptyRange();
+console.log("grid cleared.");
+} // clear
+
+		get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 
 #setCurrentCell (cell) {
@@ -115,7 +137,7 @@ cell.innerHTML = "";
 
 #startEditing (overrideText) {
 if (this.#mark) {
-statusMessage("cannot modify during selection...");
+this.#ui.statusMessage("cannot modify during selection...");
 return;
 } // if
 
@@ -131,7 +153,6 @@ cell.textContent = "";
 cell.insertAdjacentHTML("beforeEnd", `<input type="text">`);
 cell.querySelector("input").value = text;
 cell.querySelector("input").focus();
-//statusMessage("editing:");
 } // #startEditing
 
 #endEditing (cancel = false) {
@@ -149,28 +170,30 @@ cell.textContent = cell.getAttribute("data-old");
 const modified = this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range);
 for (const name of modified) {
 const data = this.spreadsheet.cellContents(name);
-if (data) this.#displayCellContents(data.name, data.value, data.formula);
+if (data) this.#displayCellContents(data);
 } // for
 } // if
 
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-old");
 this.#grid.focus();
-statusMessage("end editing.");
+this.#ui.statusMessage("end editing.");
 } // #endEditing
 
-#displayCellContents (label, value, formula = "") {
-//console.log("grid.displayCellContents: ", label, value);
-const cell = this.#labelToCell(label);
-cell.textContent = value.toString();
-if (formula && formula.length > 0) cell.setAttribute("data-formula", formula);
+#displayCellContents (data) {
+const {name, value, role, input, hasFormula} = data;
+const cell = this.#labelToCell(name);
+
+cell.role = role;
+cell.textContent = hasFormula?value.toString() : input;
+if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
 else cell.removeAttribute("formula");
 } // #displayCellContents
 
 
 
 announceCell (cell) {
-	statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
+	this.#ui.statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
 } // announceCell
 
 #cellToLabel (cell) {
@@ -226,7 +249,6 @@ getRow(cell).forEach(cell => this.#setRole(cell, role));
 
 #setRole (cell, role) {
 cell.role = role;
-console.log("grid.setRole: ", cell, role);
 this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
 } // #setRole
 
@@ -234,7 +256,7 @@ this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
 if (not(this.#mark)) {
 this.#mark = cell;
 this.#range = this.#emptyRange();
-statusMessage("mark set");
+this.#ui.statusMessage("mark set");
 return;
 } // if
 
@@ -242,11 +264,11 @@ const range = getRange(this.#mark, cell);
 this.#range = range?
 {type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
 : this.#emptyRange();
-console.log("grid.range: ", this.#range);
+//console.log("grid.range: ", this.#range);
 this.#mark = null;
 
-if (this.#range.type) statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
-else statusMessage("invalid range");
+if (this.#range.type) this.#ui.statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
+else this.#ui.statusMessage("invalid range");
 } // #defineRange
 
 #emptyRange () {
@@ -267,7 +289,7 @@ const cell = this.currentCell;
 if (this.#keymap.has(key) ) {
 const data = this.#keymap.get(key);
 //console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
-if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, key);
+if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, e);
 else return true;
 } // if
 
@@ -277,8 +299,11 @@ if (cell === this.currentCell) return;
 this.announceCell(this.currentCell);
 } // #keydownHandler
 
-#execute (command, key) {
-command(key);
+#execute (command, e) {
+e.preventDefault();
+e.stopPropagation();
+e.stopImmediatePropagation();
+command();
 } // executeCommand
 
 } // # Grid

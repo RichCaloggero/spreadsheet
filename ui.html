@@ -10,12 +10,16 @@
 <div class="status" role="status"></div>
 
 <script src="math.min.js"></script>
+<script src="storage.js"></script>
 <script src="coordinates.js"></script>
 <script src="key.js"></script>
 <script src="grid.js"></script>
 <script src="spreadsheet.js"></script>
 
 <script>
+
+
+
 const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
 const s = new Spreadsheet();
@@ -25,9 +29,49 @@ const cellLabel = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;
 s.setCellContents(cellLabel, monthNames[key]);
 } // for
 
-const g = new Grid(document, s);
+const g = new Grid({document, statusMessage, save, load}, s);
 document.querySelector(".spreadsheet").appendChild(g.dom);
 
+function save (data) {
+try {
+const jsonText = JSON.stringify(data);
+console.log("ui.save: ", jsonText);
+saveFile("spreadsheet.dat", jsonText);
+} catch (e) {
+console.log(e);
+statusMessage(e);
+} // try
+} // save
+
+function load () {
+const input = document.createElement("input");
+input.type = "file";
+
+input.addEventListener("change", async function () {
+const files = [...input.files];
+console.log("reading file ", files[0].name);
+const text = await files[0].text();
+try {
+const data = JSON.parse(text);
+g.clear();
+spreadsheet.load(data);
+} catch (e) {
+statusMessage(`failed to load data from ${files[0].name}`);
+} // try
+
+document.body.remove(input);
+g.dom.focus();
+}, {once: true}); // change event
+
+input.click();
+
+/*const label = document.createElement("label");
+label.textContent = "load file";
+label.appendChild(input);
+document.body.prepend(label);
+label.focus();
+*/
+} // load
 
 
 function statusMessage (text, remove = false) {
