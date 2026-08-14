@@ -31,17 +31,6 @@ const data = [];
 	return data;
 	} // save
 
-setCellContents (name, input, role, range, oldInput) {
-if (not(name)) {
-	statusMessage ("setCellContents: cell label missing or invalid.");
-} // if
-
-const cell = this.#setInput(name, input, role, range, oldInput);
-//console.log("setInput: ", cell);
-
-return this.#recalculate([cell.name]);
-} // setCellContents
-
 #clear () {
 	this.#cells.clear();
 	this.#precedents.clear();
@@ -54,6 +43,19 @@ setRole (name, role = "gridcell") {
 	this.#cells.get(name).role = role;
 	} // if
 	} // setRole
+
+
+setCellContents (name, input, role, range, oldInput) {
+console.log(`setCellContents: ${name}, ${input}, ${role}:\n`);
+if (not(name)) {
+	statusMessage ("setCellContents: cell label missing or invalid.");
+} // if
+
+const cell = this.#setInput(name, input, role, range, oldInput);
+//console.log("setInput: ", cell);
+
+return this.#recalculate([cell.name]);
+} // setCellContents
 
 #setInput (name, input, role = "gridcell", range = [], oldInput = "") {
 input = input.toString().trim();
@@ -68,6 +70,8 @@ code: null,
 get hasFormula () {return not(this.code === null);},
 value: input
 }; // cell
+
+cell.input = input;
 this.#cells.set(name, cell);
 
 this.#cleanupDependencies(cell);
@@ -81,9 +85,10 @@ statusMessage(`cannot parse formula: ${input}`);
 return cell;
 } // try
 
-	console.log("setInput: formula ", cell.code.toString());
+	console.log("setInput: formula ", cell.code);
 
-	for (const symbolName of getSymbols(cell.formula).concat(range)) {
+	// ranges are part of the precedents set of this cell, inputs to the formula
+for (const symbolName of getSymbols(cell.formula).concat(range)) {
 this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for

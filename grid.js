@@ -24,15 +24,17 @@ else this.#ui.statusMessage("Autosum has no selection.");
 }],
 
 ["enter", {help: "end editing", editMode: true, command: () => this.#endEditing()}],
-["escape", {help: "cancel editing cell or range definition", editMode: true, command: () => {
+["escape", {help: "cancel range definition or remove already defined range", command: () => {
 if (this.#mark) {
 this.#mark = null;
 this.#ui.statusMessage("Selection canceled.");
-} else {
-this.#endEditing("cancel");
+} else if (this.#range.range.length > 0) {
+	this.#range = emptyRange();
+	this.#ui.statusMessage("range removed.");
 } // if
 }}],
-["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
+
+	["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
 ["control+alt+shift+c", {help: "all cells in row become column header cells", command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
@@ -42,7 +44,7 @@ this.#endEditing("cancel");
 ["control+space", {help: "begin / end marking range", command: () => this.#defineRange(this.currentCell)}],
 
 // load / save
-["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.save())}],
+["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.ssave())}],
 ["control+o", {help: "load", command: () => {
 	this.#ui.load();
 	this.#loadCellsFromModel();
@@ -153,6 +155,7 @@ return;
 
 const cell = this.currentCell;
 if (cell.hasAttribute("data-editing")) return;
+
 cell.setAttribute("data-editing", true);
 cell.setAttribute("data-old", cell.textContent);
 
@@ -160,6 +163,7 @@ const text = overrideText? overrideText
 : cell.dataset.formula? cell.dataset.formula
 : cell.textContent;
 cell.textContent = "";
+
 cell.insertAdjacentHTML("beforeEnd", `<input type="text">`);
 cell.querySelector("input").value = text;
 cell.querySelector("input").focus();
@@ -178,6 +182,24 @@ cell.textContent = cell.getAttribute("data-old");
 
 } else {
 this.#loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
+console.log("new grid cell contents: ", cell);
+	
+	if (not(cell.hasAttribute("data-formula") && this.#range.range.length > 1)) {
+const cells = new Set(this.#range.range);
+		const label = this.#cellToLabel(cell);
+		console.log("created set: ", cells);
+
+		if (cells.has(label)) {
+			cells.delete(label);
+	console.log("- removed ", label, "; ", cells);
+			for (const name of cells) {
+	console.log("autofilling ", name);
+	this.#loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
+	} // for
+} else {
+this.#ui.statusMessage("current cell must be within range to autofill.");
+} // if
+} // if
 } // if
 
 cell.removeAttribute("data-editing");
@@ -307,7 +329,7 @@ return this.#ui.document.body.querySelector("#help-dialog");
 } // help
 
 
-	
+
 #keydownHandler (e) {
 const key = new Key(e).toString();
 if (key.length === 0) return false;
@@ -319,7 +341,8 @@ if (this.#keymap.has(key) ) {
 const data = this.#keymap.get(key);
 //console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
 if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, e);
-else return true;
+else if (key === "escape" && cell.hasAttribute("data-editing")) this.#endEditing("cancel");
+	else return true;
 } // if
 
 if (cell === this.currentCell) return;
