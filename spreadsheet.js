@@ -46,7 +46,7 @@ setRole (name, role = "gridcell") {
 
 
 setCellContents (name, input, role, range, oldInput) {
-console.log(`setCellContents: ${name}, ${input}, ${role}:\n`);
+//console.log(`setCellContents: ${name}, ${input}, ${role}:\n`);
 if (not(name)) {
 	statusMessage ("setCellContents: cell label missing or invalid.");
 } // if

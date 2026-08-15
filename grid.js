@@ -2,7 +2,7 @@ class Grid {
 #grid = null;
 #spreadsheet = null;
 #ui = null;
-	#range = emptyRange();
+#range = emptyRange();
 #mark = null;
 
 #keymap = new Map([
@@ -29,12 +29,12 @@ if (this.#mark) {
 this.#mark = null;
 this.#ui.statusMessage("Selection canceled.");
 } else if (this.#range.range.length > 0) {
-	this.#range = emptyRange();
-	this.#ui.statusMessage("range removed.");
+this.#range = emptyRange();
+this.#ui.statusMessage("range removed.");
 } // if
 }}],
 
-	["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
+["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
 
 // row and column tagging
 ["control+alt+shift+c", {help: "all cells in row become column header cells", command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
@@ -46,13 +46,13 @@ this.#ui.statusMessage("Selection canceled.");
 // load / save
 ["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.ssave())}],
 ["control+o", {help: "load", command: () => {
-	this.#ui.load();
-	this.#loadCellsFromModel();
+this.#ui.load(this);
+this.#loadCellsFromModel();
 }}],
 
 ["control+l", {help: "load", command: () => {
-	this.#ui.load();
-	this.#loadCellsFromModel();
+this.#ui.load();
+this.#loadCellsFromModel();
 }}],
 
 
@@ -60,9 +60,9 @@ this.#ui.statusMessage("Selection canceled.");
 
 constructor (ui, spreadsheet, nRows = 100, nColumns = 26) {
 this.#ui = ui;
-	const document = ui.document;
+const document = ui.document;
 
-	if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
+if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
 if (not(spreadsheet instanceof Spreadsheet)) throw new Error("second argument to Grid() must be a Spreadsheet object");
 
 const grid = this.#grid = document.createElement("table");
@@ -108,18 +108,18 @@ this.#displayCellContents(this.#spreadsheet.cellContents(name));
 
 clear () {
 for (cell of this.dom.querySelectorAll("gd")) {
-	cell.removeAttribute("data-editing");
-			cell.removeAttribute("data-formula");
+cell.removeAttribute("data-editing");
+	cell.removeAttribute("data-formula");
 cell.role = "gridcell";
 
-		cell.innerHTML = "&nbsp;";
-		} // forEach cell
-	
-		this.#mark = null;
-		this.#range = emptyRange();
+cell.innerHTML = "&nbsp;";
+} // forEach cell
+
+this.#mark = null;
+this.#range = emptyRange();
 } // clear
 
-		get dom () {return this.#grid;}
+get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 
 #setCurrentCell (cell) {
@@ -140,10 +140,21 @@ get spreadsheet () {return this.#spreadsheet;}
 } // #generateDescription
 
 #deleteCell (cell) {
-this.#spreadsheet.deleteCell(this.#cellToLabel(cell));
+const label = this.#cellToLabel(cell);
+const range = this.#range.range;
+const cells =  (range.length > 0 && range.includes(label))?
+range : [label];
+
+for (const label of cells) {
+	const cell = this.#labelToCell(label);
+//console.log("deleting: ", label);
+	this.#spreadsheet.deleteCell(label);
 cell.removeAttribute("data-formula");
 cell.textContent = "";
 cell.innerHTML = "";
+} // for
+
+this.#ui.statusMessage(`${cells.length} cells deleted.`);
 } // deleteCell
 
 
@@ -182,20 +193,20 @@ cell.textContent = cell.getAttribute("data-old");
 
 } else {
 this.#loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
-console.log("new grid cell contents: ", cell);
-	
-	if (not(cell.hasAttribute("data-formula") && this.#range.range.length > 1)) {
-const cells = new Set(this.#range.range);
-		const label = this.#cellToLabel(cell);
-		console.log("created set: ", cells);
+//console.log("new grid cell contents: ", cell);
 
-		if (cells.has(label)) {
-			cells.delete(label);
-	console.log("- removed ", label, "; ", cells);
-			for (const name of cells) {
-	console.log("autofilling ", name);
-	this.#loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
-	} // for
+if (not(cell.hasAttribute("data-formula") && this.#range.range.length > 1)) {
+const cells = new Set(this.#range.range);
+const label = this.#cellToLabel(cell);
+//console.log("created set: ", cells);
+
+if (cells.has(label)) {
+	cells.delete(label);
+//console.log("- removed ", label, "; ", cells);
+	for (const name of cells) {
+//console.log("autofilling ", name);
+this.#loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
+} // for
 } else {
 this.#ui.statusMessage("current cell must be within range to autofill.");
 } // if
@@ -221,7 +232,7 @@ else cell.removeAttribute("formula");
 
 
 announceCell (cell) {
-	this.#ui.statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
+this.#ui.statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
 } // announceCell
 
 #cellToLabel (cell) {
@@ -306,20 +317,20 @@ this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 
 displayKeyboardHelp () {
 if (not(this.#ui.document.body.querySelector("#help-dialog")))
-	this.#ui.document.body.insertAdjacentHTML("beforeEnd",
-	`<dialog popover id="help-dialog" closedBy="any">
+this.#ui.document.body.insertAdjacentHTML("beforeEnd",
+`<dialog popover id="help-dialog" closedBy="any">
 <div class="head">
-	<h2>Keyboard Help</h2>
-	<button autofocus onclick="this.parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
+<h2>Keyboard Help</h2>
+<button autofocus onclick="this.parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
 </div><!-- .head -->
 <div class="body">
 <table>
 ${[...this.#keymap.entries()].map(entry => {
-	const [key, data] = entry;
-	return `<tr>
-	<th>${data.help}</th>
-	<td>${key}</td>
-	</tr>`;
+const [key, data] = entry;
+return `<tr>
+<th>${data.help}</th>
+<td>${key}</td>
+</tr>`;
 }).join("\n")}
 </table></div>
 </div></dialog>
@@ -342,12 +353,12 @@ const data = this.#keymap.get(key);
 //console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
 if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, e);
 else if (key === "escape" && cell.hasAttribute("data-editing")) this.#endEditing("cancel");
-	else return true;
+else return true;
 } // if
 
 if (cell === this.currentCell) return;
 
-	cell.setAttribute("aria-selected", "false");
+cell.setAttribute("aria-selected", "false");
 this.announceCell(this.currentCell);
 } // #keydownHandler
 

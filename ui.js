@@ -26,8 +26,10 @@ statusMessage(e);
 } // try
 } // save
 
-function load () {
-const input = document.createElement("input");
+function load (grid) {
+const spreadsheet = grid.spreadsheet;
+	console.log("load: ", grid, spreadsheet);
+	const input = document.createElement("input");
 input.type = "file";
 
 input.addEventListener("change", async function () {
@@ -43,9 +45,9 @@ statusMessage(`failed to load data from ${files[0].name}`);
 return;
 } // try
 
-g.clear();
-s.load(data);
-g.dom.focus();
+grid.clear();
+spreadsheet.load(data);
+grid.dom.focus();
 }, {once: true}); // change event
 
 input.click();
