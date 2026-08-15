@@ -14,6 +14,14 @@ class Grid {
 ["arrowDown", {help: "move one cell down", command: () => this.#setCurrentCell(this.#nextCellInColumn())}],
 ["arrowUp", {help: "move one cell up", command: () => this.#setCurrentCell(this.#previousCellInColumn())}],
 
+["home", {help: "first cell in row", command: () => this.#setCurrentCell(this.currentCell.parentElement.firstElementChild)}],
+["end", {help: "last cell in row", command: () => this.#setCurrentCell(this.currentCell.parentElement.lastElementChild)}],
+["shift+home", {help: "first cell in column", command: () => this.#setCurrentCell(getColumn(this.currentCell)[0])}],
+["shift+end", {help: "last cell in column", command: () => this.#setCurrentCell(getColumn(this.currentCell).slice(-1)[0])}],
+
+["control+home", {help: "first cell in sheet", command: () => this.#setCurrentCell(this.dom.querySelector("td"))}],
+["control+end", {help: "last cell in sheet", command: () => this.#setCurrentCell([...this.dom.querySelectorAll("td")].slice(-1)[0])}],
+
 // editing
 ["f2", {help: "edit current cell", command: () => this.#startEditing()}],
 //["=", {help: "insert formula command: () => this.#startEditing("=")}],
@@ -245,11 +253,11 @@ const [r, c] = parseLabel(label);
 return rows[r].children[c];
 } // #labelToCell
 
-#row (cell) {
+#row (cell = this.currentCell) {
 return cell.parentElement.rowIndex;
 } // row
 
-#column (cell) {
+#column (cell = this.currentCell) {
 return cell.cellIndex;
 } // colun
 
