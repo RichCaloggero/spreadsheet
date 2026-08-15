@@ -26,7 +26,7 @@ class Grid {
 ["f2", {help: "edit current cell", command: () => this.#startEditing()}],
 //["=", {help: "insert formula command: () => this.#startEditing("=")}],
 ["alt+=", {help: "autosum over defined range, if any", command: () => {
-if (this.#range.range.length > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
+if (this.#range.range.size > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
 else this.#ui.statusMessage("Autosum has no selection.");
 } // if
 }],
@@ -36,7 +36,7 @@ else this.#ui.statusMessage("Autosum has no selection.");
 if (this.#mark) {
 this.#mark = null;
 this.#ui.statusMessage("Selection canceled.");
-} else if (this.#range.range.length > 0) {
+} else if (this.#range.range.size > 0) {
 this.#range = emptyRange();
 this.#ui.statusMessage("range removed.");
 } // if
@@ -108,6 +108,7 @@ this.announceCell(this.currentCell);
 } // constructor
 
 #loadCellsFromModel (names = this.#spreadsheet.allCells) {
+//console.log("loadCellsFromModel: ", names);
 for (const name of names) {
 this.#displayCellContents(this.#spreadsheet.cellContents(name));
 } // for
@@ -117,7 +118,7 @@ this.#displayCellContents(this.#spreadsheet.cellContents(name));
 clear () {
 for (cell of this.dom.querySelectorAll("gd")) {
 cell.removeAttribute("data-editing");
-	cell.removeAttribute("data-formula");
+cell.removeAttribute("data-formula");
 cell.role = "gridcell";
 
 cell.innerHTML = "&nbsp;";
@@ -150,19 +151,19 @@ get spreadsheet () {return this.#spreadsheet;}
 #deleteCell (cell) {
 const label = this.#cellToLabel(cell);
 const range = this.#range.range;
-const cells =  (range.length > 0 && range.includes(label))?
-range : [label];
+const cells =  (range.size > 0 && range.has(label))?
+range : new Set([label]);
 
 for (const label of cells) {
-	const cell = this.#labelToCell(label);
+const cell = this.#labelToCell(label);
 //console.log("deleting: ", label);
-	this.#spreadsheet.deleteCell(label);
+this.#loadCellsFromModel(this.#spreadsheet.deleteCell(label));
 cell.removeAttribute("data-formula");
 cell.textContent = "";
 cell.innerHTML = "";
 } // for
 
-this.#ui.statusMessage(`${cells.length} cells deleted.`);
+this.#ui.statusMessage(`${cells.size} cells deleted.`);
 } // deleteCell
 
 
@@ -190,6 +191,7 @@ cell.querySelector("input").focus();
 
 #endEditing (cancel = false) {
 const cell = this.currentCell;
+const label = this.#cellToLabel(cell);
 if (not(cell.hasAttribute("data-editing"))) return;
 
 const input = cell.querySelector("input");
@@ -203,21 +205,17 @@ cell.textContent = cell.getAttribute("data-old");
 this.#loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
 //console.log("new grid cell contents: ", cell);
 
-if (not(cell.hasAttribute("data-formula") && this.#range.range.length > 1)) {
+if (not(cell.hasAttribute("data-formula") && this.#range.range.has(label) && this.#range.range.size > 1)) {
 const cells = new Set(this.#range.range);
-const label = this.#cellToLabel(cell);
+cells.delete(label);
 //console.log("created set: ", cells);
 
-if (cells.has(label)) {
-	cells.delete(label);
-//console.log("- removed ", label, "; ", cells);
-	for (const name of cells) {
+for (const name of cells) {
 //console.log("autofilling ", name);
 this.#loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
 } // for
 } else {
-this.#ui.statusMessage("current cell must be within range to autofill.");
-} // if
+//this.#ui.statusMessage("current cell must be within range to autofill.");
 } // if
 } // if
 
@@ -254,11 +252,11 @@ return rows[r].children[c];
 } // #labelToCell
 
 #row (cell = this.currentCell) {
-return cell.parentElement.rowIndex;
+return rowIndex(cell);
 } // row
 
 #column (cell = this.currentCell) {
-return cell.cellIndex;
+return columnIndex(cell);
 } // colun
 
 
@@ -308,13 +306,11 @@ return;
 } // if
 
 const range = getRange(this.#mark, cell);
-this.#range = range?
-{type: range.type, range: range.range.map(cell => this.#cellToLabel(cell))}
-: emptyRange();
+this.#range = range? range : emptyRange();
 //console.log("grid.range: ", this.#range);
 this.#mark = null;
 
-if (this.#range.type) this.#ui.statusMessage(`${this.#range.range.length} cells in ${this.#range.type} range.`);
+if (this.#range.type) this.#ui.statusMessage(`${this.#range.range.size} cells in ${this.#range.type} range.`);
 else this.#ui.statusMessage("invalid range");
 } // #defineRange
 
@@ -377,10 +373,9 @@ e.stopImmediatePropagation();
 command();
 } // executeCommand
 
-} // # Grid
+} // class Grid
 
 
-function $grid (cell) {return $row(cell).parentElement;}
 function getRow (cell) {return [...cell.parentElement.children];}
 
 function getColumn (cell) {
@@ -391,12 +386,15 @@ return [...cell.parentElement.parentElement.children].map($row => $row.children[
 function getRange (cell1, cell2) {
 const cells = isSameRow(cell1, cell2)? getRow(cell1)
 : isSameColumn(cell1, cell2)? getColumn(cell1)
-: [];
+: null;
+if (not(cells)) return null;
 
 const type = isSameRow(cell1, cell2)? "row" : "column";
 
-return cells.length > 0?
-{type, range: cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))} : null;
+return {
+type, range: new Set(cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))
+.map(cell => formatLabel(rowIndex(cell), columnIndex(cell)))
+)};
 } // getRange
 
 function isSameRow (cell1, cell2) {
@@ -419,11 +417,13 @@ return a.filter((cell, i) => i >= index1 && i <= index2);
 
 function expandRange (range) {
 // just stick in contents for now
-return range.range.join(", ");
+return [...range.range].join(", ");
 } // expandRange
 
 function emptyRange () {
-return {type: "empty", range: []};
+return {type: "empty", range: new Set([])};
 } // #emptyRange
 
+function rowIndex (cell) {return cell.parentElement.rowIndex;}
+function columnIndex (cell) {return cell.cellIndex;}
 function not(x) {return !x;}
