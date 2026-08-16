@@ -41,13 +41,18 @@ data = JSON.parse(text);
 //console.log(data);
 } catch (e) {
 console.log(e);
-statusMessage(`failed to load data from ${files[0].name}`);
+statusMessage(`failed to load data from ${files[0].name}; not valid JSON format`);
 return;
 } // try
 
 grid.clear();
-spreadsheet.load(data);
+const result = spreadsheet.load(data);
+if (result.error) {
+	statusMesssage(result.message);
+} else {
+	grid.loadCellsFromModel();
 grid.dom.focus();
+} // if
 }, {once: true}); // change event
 
 input.click();

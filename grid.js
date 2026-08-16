@@ -4,6 +4,8 @@ class Grid {
 #ui = null;
 #range = emptyRange();
 #mark = null;
+#maxRowCount = 0;
+	#maxColumnCount = 0;
 
 #keymap = new Map([
 ["f1", {help: "display keyboard help", command: () => this.displayKeyboardHelp().showModal()}],
@@ -53,10 +55,7 @@ this.#ui.statusMessage("range removed.");
 
 // load / save
 ["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.ssave())}],
-["control+o", {help: "load", command: () => {
-this.#ui.load(this);
-this.#loadCellsFromModel();
-}}],
+["control+o", {help: "load", command: () => this.#ui.load(this)}],
 
 ["control+l", {help: "load", command: () => {
 this.#ui.load();
@@ -67,7 +66,9 @@ this.#loadCellsFromModel();
 ]); // keymap
 
 constructor (ui, spreadsheet, nRows = 100, nColumns = 26) {
-this.#ui = ui;
+this.#maxRowCount = nRows;
+	this.#maxColumnCount = nColumns;
+	this.#ui = ui;
 const document = ui.document;
 
 if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
@@ -130,6 +131,8 @@ this.#range = emptyRange();
 
 get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
+get maxRowCount () {return this.#maxRowCount;}
+get maxColumnCount () {return this.#maxColumnCount;}
 
 #setCurrentCell (cell) {
 this.#grid.ariaActiveDescendantElement = cell;
@@ -229,10 +232,17 @@ this.#ui.statusMessage("end editing.");
 const {name, value, role, input, hasFormula} = data;
 const cell = this.#labelToCell(name);
 
-cell.role = role;
+if (data.error) {
+cell.textContent = "#error";
+	cell.ariaDescription = data.message;
+
+} else {
+	cell.role = role;
 cell.textContent = hasFormula?value.toString() : input;
-if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
+
+	if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
 else cell.removeAttribute("formula");
+} // if
 } // #displayCellContents
 
 
@@ -242,12 +252,12 @@ this.#ui.statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has
 } // announceCell
 
 #cellToLabel (cell) {
-return formatLabel(this.#row(cell), this.#column(cell));
+return formatLabel(this.#row(cell), this.#column(cell), this.maxRowCount, this.maxColumnCount);
 } // #cellToLabel
 
 #labelToCell (label) {
 const rows = this.dom.querySelector("tr").parentElement.children;
-const [r, c] = parseLabel(label);
+const [r, c] = parseLabel(label, this.maxRowCount, this.maxColumnCount);
 return rows[r].children[c];
 } // #labelToCell
 
@@ -393,7 +403,7 @@ const type = isSameRow(cell1, cell2)? "row" : "column";
 
 return {
 type, range: new Set(cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))
-.map(cell => formatLabel(rowIndex(cell), columnIndex(cell)))
+.map(cell => formatLabel(rowIndex(cell), columnIndex(cell), this.maxRowCount, this.maxColumnCount))
 )};
 } // getRange
 

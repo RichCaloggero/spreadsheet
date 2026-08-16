@@ -18,10 +18,15 @@ return cell? {name: cell.name, role: cell.role, input: cell.input, value: cell.v
 } // cellContents
 
 load (entries) {
-this.#clear();
-for (const data of entries) this.#setInput(data.name, data.input, data.role);
 
+	for (const data of entries) {
+		const cell = this.#setInput(data.name, data.input, data.role);
+if (cell.error) return cell;
+	} // for
+
+		this.#clear();
 this.#recalculate([...this.#cells.keys()]);
+
 } // load
 
 save () {
@@ -82,7 +87,8 @@ cell.formula = createFormula(input.slice(1));
 try {
 cell.code = cell.formula.compile();
 } catch (e) {
-statusMessage(`cannot parse formula: ${input}`);
+cell.error = true;
+	cell.message = `cannot parse formula: ${input}`;
 return cell;
 } // try
 
@@ -90,7 +96,14 @@ return cell;
 
 // ranges are part of the precedents set of this cell, inputs to the formula
 for (const symbolName of getSymbols(cell.formula).concat([...range])) {
-this.#precedentsOf(name).add(symbolName);
+const result = parseLabel(name);
+if (result.error) {
+	cell.error = true;
+	cell.message += `\n${result.message}`;
+return cell;
+	} // if
+
+	this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for
 
