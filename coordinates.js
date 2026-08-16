@@ -6,26 +6,26 @@ const columnLabels = "abcdefghijklmnopqrstuvwxyz";
 
 function parseLabel (label, maxRowCount, maxColumnCount) {
 if (not(label) || not(label instanceof String || typeof(label) === "string") || label.length < 2)
-	throw new Error(`label must be a string containing at least two characters: ${label}`);
+	return {error: true, message: `label must be a string containing at least two characters: ${label}`};
 
 label = label.trim().toLowerCase();
 const result = label.match(/^([a-z]+)([0-9]+)$/);
 //console.log("- result: ", result);
 
 if (not(result))
-throw new Error("labels must be of the form a single letter, followed by any number of decimal digits (i.e. a1, z99");
+return {error: true, message: `labels must be of the form a single letter, followed by any number of decimal digits (i.e. a1, z99: ${label}`};
 
 const c = result[1];
 const r = result[2];
 if (c.length > 1) 
-throw new Error("only single alphabetics can occur before the digits (i.e. a1, c99, but not ab22)");
+return {error: true, message: `only single alphabetics can occur before the digits (i.e. a1, c99, but not ab22): ${label}`};
 
 
 const column = columnLabels.indexOf(c);
 const row = Number(r) - 1;
 
 if (row >= maxRowCount)
-throw new Error(`row index cannot be greater than ${maxRowCount}`);
+return {error: true, message: `row index cannot be greater than ${maxRowCount}: ${row}`};
 
 return [row, column];
 } // parseLabel

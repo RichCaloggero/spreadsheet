@@ -232,17 +232,17 @@ this.#ui.statusMessage("end editing.");
 const {name, value, role, input, hasFormula} = data;
 const cell = this.#labelToCell(name);
 
+cell.textContent = data.value;
 if (data.error) {
-cell.textContent = "#error";
-	cell.ariaDescription = data.message;
-
+  cell.ariaDescription = data.description;
+cell.setAttribute("aria-invalid", "true");
 } else {
-	cell.role = role;
-cell.textContent = hasFormula?value.toString() : input;
-
-	if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
-else cell.removeAttribute("formula");
+  cell.removeAttribute("aria-description");
+  cell.removeAttribute("aria-invalid");
 } // if
+
+if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
+else cell.removeAttribute("formula");
 } // #displayCellContents
 
 

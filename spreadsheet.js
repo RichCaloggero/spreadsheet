@@ -1,3 +1,36 @@
+class CellError {
+static #codes = new Map([
+["parse", "formula parser error"],
+["evaluation", "formula evaluation error"],
+["circular", "circular reference (a1 refers to a2 refers to a1)"],
+["not-a-number", "invalid real value"],
+	["divide-by-zero", "division by zero"],
+
+	["unknown", "unknown error"],
+]); // new Map
+
+#code = "";
+#message = "";
+
+constructor (code, message = "") {
+this.#code = code;
+this.#message = message;
+} // constructor
+
+get code () {return this.#code;}
+toString () {
+return `#${this.#code}`;
+} // toString
+
+get description () {
+const codes = CellError.#codes;
+const code = codes.has(this.#code)? this.#code : "unknown";
+return `${this.#message}\n${codes.get(code)} (${code})`;
+} // description
+} // class
+
+
+
 class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
@@ -12,19 +45,30 @@ return this.#cells.keys();
 } // allCells
 
 cellContents (name) {
-const cell = this.#cells.get(name);
-return cell? {name: cell.name, role: cell.role, input: cell.input, value: cell.value? cell.value : "", hasFormula: cell.hasFormula}
-: {name};
+  const cell = this.#cells.get(name);
+  if (not(cell)) return {name};
+
+  const value = cell.value;
+  const failed = value instanceof CellError;
+
+  return {
+    name: cell.name,
+    role: cell.role,
+    input: cell.input,
+    hasFormula: cell.hasFormula,
+    value: failed ? String(value) : value ?? "",
+    error: failed ? value.code : null,
+    description: failed ? value.description : null
+  };
 } // cellContents
 
 load (entries) {
+	this.#clear();
 
-	for (const data of entries) {
-		const cell = this.#setInput(data.name, data.input, data.role);
-if (cell.error) return cell;
-	} // for
+for (const data of entries) {
+	const cell = this.#setInput(data.name, data.input, data.role);
+} // for
 
-		this.#clear();
 this.#recalculate([...this.#cells.keys()]);
 
 } // load
@@ -53,13 +97,13 @@ this.#cells.get(name).role = role;
 setCellContents (name, input, role, range, oldInput) {
 //console.log(`setCellContents: ${name}, ${input}, ${role}:\n`);
 if (not(name)) {
-statusMessage ("setCellContents: cell label missing or invalid.");
+throw new Error("setCellContents: cell label missing or invalid.");
 } // if
 
 const cell = this.#setInput(name, input, role, range, oldInput);
 //console.log("setInput: ", cell);
 
-return this.#recalculate([cell.name]);
+return this.#recalculate([name]);
 } // setCellContents
 
 #setInput (name, input, role = "gridcell", range = new Set([]), oldInput = "") {
@@ -80,15 +124,15 @@ cell.input = input;
 cell.value = input;
 this.#cells.set(name, cell);
 
-this.#cleanupDependencies(cell);
+this.#cleanupDependencies(cell.name);
 
 if (isFormula(input)) {
-cell.formula = createFormula(input.slice(1));
 try {
+cell.formula = createFormula(input.slice(1));
 cell.code = cell.formula.compile();
 } catch (e) {
-cell.error = true;
-	cell.message = `cannot parse formula: ${input}`;
+cell.code = null;
+	cell.value = new CellError("parse", `cannot parse formula: ${input}`);
 return cell;
 } // try
 
@@ -96,17 +140,18 @@ return cell;
 
 // ranges are part of the precedents set of this cell, inputs to the formula
 for (const symbolName of getSymbols(cell.formula).concat([...range])) {
-const result = parseLabel(name);
+const result = parseLabel(symbolName);
 if (result.error) {
-	cell.error = true;
-	cell.message += `\n${result.message}`;
+cell.value = new CellError("parse", `bad cell label: ${symbolName}`);
 return cell;
-	} // if
+} // if
 
-	this.#precedentsOf(name).add(symbolName);
+this.#precedentsOf(name).add(symbolName);
 this.#dependentsOf(symbolName).add(cell.name);
 } // for
 
+} else {
+//cell.value = Number(input) === NaN? input : Number(input);
 } // if
 
 return cell;
@@ -116,16 +161,16 @@ return cell;
 // find dirty cells
 const dirty = names.length > 1? new Set(names)
 : this.#computeDirtySet(names[0]);
-//console.log("dirty: ", dirty);
+console.log("dirty: ", dirty);
 
 const sorted = this.#topologicalSort(dirty);
-//console.log("sorted: ", sorted);
+console.log("sorted: ", sorted);
 
 for (const name of sorted) {
 this.#evaluate(this.#cells.get(name));
 } // for
 
-//console.log("recalulate returning ", [...sorted]);
+console.log("recalculate returning ", [...sorted]);
 return [...sorted];
 } // #recalculate
 
@@ -133,10 +178,11 @@ return [...sorted];
 #computeDirtySet (name) {
 const dirty = new Set([name]);
 
-for (const s of dirty) {
-for (const d of this.#dependentsOf(s)) dirty.add(d);
+for (const name of dirty) {
+for (const d of this.#dependentsOf(name)) dirty.add(d);
 } // for
 
+console.log(`dirty(${name}) returning `, dirty);
 return dirty;
 } // #computeDirtySet
 
@@ -164,33 +210,53 @@ return order;
 } // #topologicalSort
 
 #evaluate (cell) {
-if (not(cell)) return "";
+if (not(cell)) return;
+console.log("#evaluate: ", cell);
+
 if (cell.hasFormula) {
+if (cell.value instanceof CellError) return;
+
+for (const name of this.#precedentsOf(cell.name)) {
+const value = this.#cells.has(name)? this.#cells.get(name).value : "";
+	if (value instanceof CellError) {
+cell.value = new CellError("evaluation", value.description);
+	return;
+	} // if
+} // for
+
 const scope = this.#createScope(this.#precedentsOf(cell.name));
+console.log("- scope: ", scope);
 try {
-cell.value = cell.code.evaluate(scope);
-} catch (e) {
-cell.value = 0;
-} // try
+cell.value = this.#evaluateCode(cell.code, scope);
+	console.log("#evaluate: try cell.value = ", cell.value);
+	} catch (e) {
+cell.value = new CellError("eval", e);
+console.log("- #evaluate catch: ", e);
+		} // try
 
 } // if
+console.log("#evaluate: cell.value = ", cell.value);
 
-return isString(cell.value)? cell.value : Number(cell.value);
-;
-//return cell.value;
 } // #evaluate
+
+#evaluateCode (code, scope) {
+const value = code.evaluate(scope);
+console.log("#evaluateCode: value = ", value);
+return Number.isNaN(value)? new CellError("not-a-number", "usually invalid real value such as sqrt(-1)")
+: value === Infinity? new CellError("divide-by-zero", "division by zero")
+: value;
+} // #evaluateCode
 
 #createScope (names) {
 const scope = new Map();
 for (const name of names) {
 const cell = this.#cells.get(name);
-scope.set(name, cell? Number(cell.value) : 0);
+scope.set(name, cell? cell.value : 0);
 } // for
 
 //console.log("created scope for ", names, "; ", scope);
 return scope;
 } // #createScope
-
 
 
 #precedentsOf (name) {
@@ -216,7 +282,9 @@ this.#precedentsOf(cellName).clear();
 } // #ccleanupDependencies
 
 deleteCell (name) {
-const cell = this.#cells.get(name);
+if (not(this.#cells.has(name))) return;
+
+	const cell = this.#cells.get(name);
 //cell.input = cell.value = "";
 
 
