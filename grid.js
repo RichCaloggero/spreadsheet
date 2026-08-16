@@ -248,7 +248,9 @@ else cell.removeAttribute("formula");
 
 
 announceCell (cell) {
-this.#ui.statusMessage(`${this.#cellToLabel(cell)}${cell.dataset.formula? ", has formula" : ""}`);
+const label = this.#cellToLabel(cell);
+	const message = `${label}${cell.dataset.formula? ", has formula" : ""}${this.#range.range.has(label)? ", in range" : ""}`;
+		this.#ui.statusMessage(message);
 } // announceCell
 
 #cellToLabel (cell) {
