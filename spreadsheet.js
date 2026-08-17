@@ -1,9 +1,9 @@
 class CellError {
 static #codes = new Map([
-["parse", "formula parser error"],
-["evaluation", "formula evaluation error"],
+["parse", "cannot parse formula"],
+["evaluation", "formula evaluation"],
 ["circular", "circular reference (a1 refers to a2 refers to a1)"],
-["not-a-number", "invalid real value i.e. sqrt(-1)"],
+["not-a-number", "invalid real value i.e. 0/0 or sqrt(-1)"],
 	["divide-by-zero", "division by zero"],
 
 	["unknown", "unknown error"],
@@ -225,13 +225,13 @@ cell.value = new CellError("evaluation", `precedent ${name} has an error`);
 
 const scope = this.#createScope(this.#precedentsOf(cell.name));
 //console.log("- scope: ", scope);
-//try {
+try {
 cell.value = this.#evaluateCode(cell.code, scope);
 	console.log("- cell.value = ", cell.value);
-	//} catch (e) {
-//console.log("- - catch: ", e);
-//cell.value = new CellError("eval", e);
-		//} // try
+	} catch (e) {
+console.log("- - catch: ", e);
+cell.value = new CellError("evaluation", e);
+		} // try
 
 } // if
 //console.log("#evaluate: cell.value = ", cell.value);
