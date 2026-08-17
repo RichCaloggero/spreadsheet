@@ -29,7 +29,6 @@ return `${codes.get(code)}; ${this.detail}`;
 } // class
 
 
-
 class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
@@ -65,10 +64,10 @@ cellContents (name) {
 } // cellContents
 
 load (entries) {
-	this.#clear();
+	this.clear();
 //console.log("spreadsheet cleared.");
 //console.log(entries);
-	
+
 for (const data of entries) {
 	const cell = this.#setInput(data.name, data.input, data.role);
 } // for
@@ -83,11 +82,11 @@ for (const cell of this.#cells.values()) data.push(this.cellContents(cell.name))
 return data;
 } // save
 
-#clear () {
+clear () {
 this.#cells.clear();
 this.#precedents.clear();
 this.#dependents.clear();
-} // #clear
+} // clear
 
 setRole (name, role = "gridcell") {
 if (this.#cells.has(name)) {
@@ -232,7 +231,7 @@ const scope = this.#createScope(this.#precedentsOf(cell.name));
 //console.log("- scope: ", scope);
 try {
 cell.value = this.#evaluateCode(cell.code, scope);
-	console.log("- cell.value = ", cell.value);
+	//console.log("- cell.value = ", cell.value);
 	} catch (e) {
 //console.log("- - catch: ", e);
 cell.value = new CellError("evaluation", e);

@@ -116,10 +116,11 @@ this.#displayCellContents(this.#spreadsheet.cellContents(name));
 
 
 clear () {
-for (cell of this.dom.querySelectorAll("gd")) {
+for (const cell of this.dom.querySelectorAll("td")) {
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-formula");
 cell.role = "gridcell";
+cell.ariaDescription = "";
 
 cell.innerHTML = "&nbsp;";
 } // forEach cell
@@ -228,10 +229,10 @@ this.#ui.statusMessage("end editing.");
 } // #endEditing
 
 #displayCellContents (data) {
-console.log("displayCellContents: ", data);
+//console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula} = data;
 const cell = this.#labelToCell(name);
-console.log("displayCellContents: ", name, input, role, value, hasFormula, cell);
+//console.log("displayCellContents: ", name, input, role, value, hasFormula, cell);
 
 cell.textContent = value;
 cell.role = role;
