@@ -3,29 +3,28 @@ static #codes = new Map([
 ["parse", "formula parser error"],
 ["evaluation", "formula evaluation error"],
 ["circular", "circular reference (a1 refers to a2 refers to a1)"],
-["not-a-number", "invalid real value"],
+["not-a-number", "invalid real value i.e. sqrt(-1)"],
 	["divide-by-zero", "division by zero"],
 
 	["unknown", "unknown error"],
 ]); // new Map
 
 #code = "";
-#message = "";
+#detail = "";
 
-constructor (code, message = "") {
+constructor (code, detail = "") {
 this.#code = code;
-this.#message = message;
+this.#detail = detail;
 } // constructor
 
 get code () {return this.#code;}
-toString () {
-return `#${this.#code}`;
-} // toString
+get detail () {return this.#detail;}
+toString () {return `#${this.#code}`;} // toString
 
 get description () {
 const codes = CellError.#codes;
 const code = codes.has(this.#code)? this.#code : "unknown";
-return `${this.#message}\n${codes.get(code)} (${code})`;
+return `${codes.get(code)}; ${this.detail}`;
 } // description
 } // class
 
@@ -132,7 +131,7 @@ cell.formula = createFormula(input.slice(1));
 cell.code = cell.formula.compile();
 } catch (e) {
 cell.code = null;
-	cell.value = new CellError("parse", `cannot parse formula: ${input}`);
+	cell.value = new CellError("parse", input);
 return cell;
 } // try
 
@@ -151,8 +150,9 @@ this.#dependentsOf(symbolName).add(cell.name);
 } // for
 
 } else {
-//cell.value = Number(input) === NaN? input : Number(input);
-} // if
+const n = Number(input);
+cell.value = (input !== "" && not(Number.isNaN(n))) ? n : input;
+	} // if
 
 return cell;
 } // #setInput
@@ -161,28 +161,28 @@ return cell;
 // find dirty cells
 const dirty = names.length > 1? new Set(names)
 : this.#computeDirtySet(names[0]);
-console.log("dirty: ", dirty);
+//console.log("dirty: ", dirty);
 
 const sorted = this.#topologicalSort(dirty);
-console.log("sorted: ", sorted);
+//console.log("sorted: ", sorted);
 
 for (const name of sorted) {
 this.#evaluate(this.#cells.get(name));
 } // for
 
-console.log("recalculate returning ", [...sorted]);
+//console.log("recalculate returning ", [...sorted]);
 return [...sorted];
 } // #recalculate
 
 
 #computeDirtySet (name) {
 const dirty = new Set([name]);
+//console.log("computeDirty: ", dirty);
 
 for (const name of dirty) {
 for (const d of this.#dependentsOf(name)) dirty.add(d);
 } // for
 
-console.log(`dirty(${name}) returning `, dirty);
 return dirty;
 } // #computeDirtySet
 
@@ -211,40 +211,43 @@ return order;
 
 #evaluate (cell) {
 if (not(cell)) return;
-console.log("#evaluate: ", cell);
+//console.log("#evaluate: ", cell);
 
 if (cell.hasFormula) {
-if (cell.value instanceof CellError) return;
-
 for (const name of this.#precedentsOf(cell.name)) {
-const value = this.#cells.has(name)? this.#cells.get(name).value : "";
+//console.log("- examine precedent ", name);
+	const value = this.#cells.has(name)? this.#cells.get(name).value : "";
 	if (value instanceof CellError) {
-cell.value = new CellError("evaluation", value.description);
+cell.value = new CellError("evaluation", `precedent ${name} has an error`);
 	return;
 	} // if
 } // for
 
 const scope = this.#createScope(this.#precedentsOf(cell.name));
-console.log("- scope: ", scope);
-try {
+//console.log("- scope: ", scope);
+//try {
 cell.value = this.#evaluateCode(cell.code, scope);
-	console.log("#evaluate: try cell.value = ", cell.value);
-	} catch (e) {
-cell.value = new CellError("eval", e);
-console.log("- #evaluate catch: ", e);
-		} // try
+	console.log("- cell.value = ", cell.value);
+	//} catch (e) {
+//console.log("- - catch: ", e);
+//cell.value = new CellError("eval", e);
+		//} // try
 
 } // if
-console.log("#evaluate: cell.value = ", cell.value);
+//console.log("#evaluate: cell.value = ", cell.value);
 
 } // #evaluate
 
 #evaluateCode (code, scope) {
+//console.log("#evaluateCode: ", code, scope);
 const value = code.evaluate(scope);
-console.log("#evaluateCode: value = ", value);
-return Number.isNaN(value)? new CellError("not-a-number", "usually invalid real value such as sqrt(-1)")
-: value === Infinity? new CellError("divide-by-zero", "division by zero")
-: value;
+//console.log("- value = ", value);
+if (typeof value === "number" && not(Number.isFinite(value))) {
+  return Number.isNaN(value)
+    ? new CellError("not-a-number", "...")
+    : new CellError("divide-by-zero");
+} // if
+return value;
 } // #evaluateCode
 
 #createScope (names) {
