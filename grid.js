@@ -54,12 +54,11 @@ this.#ui.statusMessage("range removed.");
 ["control+space", {help: "begin / end marking range", command: () => this.#defineRange(this.currentCell)}],
 
 // load / save
-["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.ssave())}],
+["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.save())}],
 ["control+o", {help: "load", command: () => this.#ui.load(this)}],
 
 ["control+l", {help: "load", command: () => {
 this.#ui.load();
-this.#loadCellsFromModel();
 }}],
 
 
@@ -100,7 +99,7 @@ this.#enableNavigation();
 
 this.#unselectAllCells();
 
-this.#loadCellsFromModel();
+this.loadCellsFromModel();
 
 setTimeout(() => {
 grid.focus();
@@ -108,7 +107,7 @@ this.announceCell(this.currentCell);
 }, 50);
 } // constructor
 
-#loadCellsFromModel (names = this.#spreadsheet.allCells) {
+loadCellsFromModel (names = this.#spreadsheet.allCells) {
 //console.log("loadCellsFromModel: ", names);
 for (const name of names) {
 this.#displayCellContents(this.#spreadsheet.cellContents(name));
@@ -160,7 +159,7 @@ range : new Set([label]);
 for (const label of cells) {
 const cell = this.#labelToCell(label);
 //console.log("deleting: ", label);
-this.#loadCellsFromModel(this.#spreadsheet.deleteCell(label));
+this.loadCellsFromModel(this.#spreadsheet.deleteCell(label));
 cell.removeAttribute("data-formula");
 cell.textContent = "";
 cell.innerHTML = "";
@@ -205,7 +204,7 @@ if (Boolean(cancel)) {
 cell.textContent = cell.getAttribute("data-old");
 
 } else {
-this.#loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
+this.loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
 //console.log("new grid cell contents: ", cell);
 
 if (not(cell.hasAttribute("data-formula") && this.#range.range.has(label) && this.#range.range.size > 1)) {
@@ -215,7 +214,7 @@ cells.delete(label);
 
 for (const name of cells) {
 //console.log("autofilling ", name);
-this.#loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
+this.loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
 } // for
 } else {
 //this.#ui.statusMessage("current cell must be within range to autofill.");
@@ -229,10 +228,14 @@ this.#ui.statusMessage("end editing.");
 } // #endEditing
 
 #displayCellContents (data) {
+console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula} = data;
 const cell = this.#labelToCell(name);
+console.log("displayCellContents: ", name, input, role, value, hasFormula, cell);
 
-cell.textContent = data.value;
+cell.textContent = value;
+cell.role = role;
+
 if (data.error) {
   cell.ariaDescription = data.description;
 cell.setAttribute("aria-invalid", "true");

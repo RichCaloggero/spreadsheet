@@ -1,15 +1,8 @@
 main(document);
 
 function main (document) {
-
-const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
-
 const s = new Spreadsheet();
-
-for (const key in monthNames) {
-const cellLabel = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;
-s.setCellContents(cellLabel, monthNames[key]);
-} // for
+//s.test2();
 
 const g = new Grid({document, statusMessage, save, load}, s);
 document.querySelector(".spreadsheet").appendChild(g.dom);
@@ -21,38 +14,35 @@ const jsonText = JSON.stringify(data);
 //console.log("ui.save: ", jsonText);
 saveFile("spreadsheet.dat", jsonText);
 } catch (e) {
-console.log(e);
+//console.log(e);
 statusMessage(e);
 } // try
 } // save
 
 function load (grid) {
 const spreadsheet = grid.spreadsheet;
-	console.log("load: ", grid, spreadsheet);
-	const input = document.createElement("input");
+//console.log("load: ", grid, spreadsheet);
+const input = document.createElement("input");
 input.type = "file";
 
 input.addEventListener("change", async function () {
 const files = [...input.files];
 const text = await files[0].text();
+
 let data;
 try {
 data = JSON.parse(text);
-//console.log(data);
+//console.log("JSON parsed correctly");
 } catch (e) {
-console.log(e);
+//console.log(e);
 statusMessage(`failed to load data from ${files[0].name}; not valid JSON format`);
 return;
 } // try
 
 grid.clear();
-const result = spreadsheet.load(data);
-if (result.error) {
-	statusMesssage(result.message);
-} else {
-	grid.loadCellsFromModel();
+spreadsheet.load(data);
+grid.loadCellsFromModel();
 grid.dom.focus();
-} // if
 }, {once: true}); // change event
 
 input.click();
@@ -69,13 +59,13 @@ function saveFile (name, text) {
 const contents = new Blob([text], {type: "application/octet-stream", endings: "native"});
 const url = URL.createObjectURL(contents);
 const link = document.createElement("a");
-	link.setAttribute("href", url);
-	link.setAttribute("download", name);
+link.setAttribute("href", url);
+link.setAttribute("download", name);
 /*const confirmation = document.createElement("p");
 confirmation.appendChild(link);
-	document.body.prepend(confirmation);
+document.body.prepend(confirmation);
 link.focus();
-	*/
+*/
 link.click();
 setTimeout(() => URL.revokeObjectURL(url), 1000);
 } // saveFile

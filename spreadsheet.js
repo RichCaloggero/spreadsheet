@@ -39,8 +39,11 @@ class Spreadsheet {
 constructor () {
 } // constructor
 
+//setInput (...args) {return this.#setInput(...args);}
+get allNames () {return [...this.#cells.keys()];}
+
 get allCells () {
-return this.#cells.keys();
+return [...this.#cells.keys()];
 } // allCells
 
 cellContents (name) {
@@ -55,26 +58,27 @@ cellContents (name) {
     role: cell.role,
     input: cell.input,
     hasFormula: cell.hasFormula,
-    value: failed ? String(value) : value ?? "",
-    error: failed ? value.code : null,
-    description: failed ? value.description : null
+    value: failed? String(value) : value ?? "",
+    error: failed? value.code : "",
+    description: failed? value.description : ""
   };
 } // cellContents
 
 load (entries) {
 	this.#clear();
-
+//console.log("spreadsheet cleared.");
+//console.log(entries);
+	
 for (const data of entries) {
 	const cell = this.#setInput(data.name, data.input, data.role);
 } // for
 
 this.#recalculate([...this.#cells.keys()]);
-
 } // load
 
 save () {
 const data = [];
-for (const cell of this.#cells.values()) data.push({name: cell.name, input: cell.input, value: cell.value, role: cell.role}); 
+for (const cell of this.#cells.values()) data.push(this.cellContents(cell.name));
 
 return data;
 } // save
@@ -109,6 +113,7 @@ return this.#recalculate([name]);
 input = input.toString().trim();
 oldInput = oldInput.toString().trim();
 this.#replayQueue.push ({name, input, oldInput});
+//console.log("setInput: ", name, input, role, range, oldInput);
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
@@ -120,8 +125,8 @@ value: input
 }; // cell
 
 cell.input = input;
-cell.value = input;
 this.#cells.set(name, cell);
+//console.log("setInput: initial cell ", cell);
 
 this.#cleanupDependencies(cell.name);
 
@@ -229,7 +234,7 @@ try {
 cell.value = this.#evaluateCode(cell.code, scope);
 	console.log("- cell.value = ", cell.value);
 	} catch (e) {
-console.log("- - catch: ", e);
+//console.log("- - catch: ", e);
 cell.value = new CellError("evaluation", e);
 		} // try
 
@@ -299,6 +304,28 @@ return this.#recalculate([name]);
 
 has (name) {return this.#cells.has(name);}
 
+/// test
+
+test1 () {
+	const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+for (const key in monthNames) {
+const label = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;
+this.#setInput(label, monthNames[key], "columnheader");
+} // for
+this.#recalculate(this.allNames);
+} // test1
+
+test2 () {
+const jsonData = `
+	[{"name":"b1","role":"columnheader","input":"january","hasFormula":false,"value":"january","error":null,"description":null},{"name":"c1","role":"columnheader","input":"february","hasFormula":false,"value":"february","error":null,"description":null},{"name":"d1","role":"columnheader","input":"march","hasFormula":false,"value":"march","error":null,"description":null},{"name":"e1","role":"columnheader","input":"april","hasFormula":false,"value":"april","error":null,"description":null},{"name":"f1","role":"columnheader","input":"may","hasFormula":false,"value":"may","error":null,"description":null},{"name":"g1","role":"columnheader","input":"june","hasFormula":false,"value":"june","error":null,"description":null},{"name":"h1","role":"columnheader","input":"july","hasFormula":false,"value":"july","error":null,"description":null},{"name":"i1","role":"columnheader","input":"august","hasFormula":false,"value":"august","error":null,"description":null},{"name":"j1","role":"columnheader","input":"september","hasFormula":false,"value":"september","error":null,"description":null},{"name":"k1","role":"columnheader","input":"october","hasFormula":false,"value":"october","error":null,"description":null},{"name":"l1","role":"columnheader","input":"november","hasFormula":false,"value":"november","error":null,"description":null},{"name":"m1","role":"columnheader","input":"december","hasFormula":false,"value":"december","error":null,"description":null},{"name":"a1","role":"rowheader","input":"type F1 for help","hasFormula":false,"value":"type F1 for help","error":null,"description":null},{"name":"a2","role":"rowheader","input":"rent/mortgage","hasFormula":false,"value":"rent/mortgage","error":null,"description":null},{"name":"a3","role":"rowheader","input":"food","hasFormula":false,"value":"food","error":null,"description":null}]
+`;
+
+const data = JSON.parse(jsonData);
+	this.load(data);
+	
+} // test2
+
 } // class Spreadsheet
 
 /// Spreadsheet Functions
@@ -333,3 +360,4 @@ return typeof(x) === "object"? x instanceof String : typeof(x) === "string";
 
 function not (x) {return !x;}
 
+/// test
