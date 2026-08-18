@@ -5,7 +5,7 @@ class Grid {
 #range = emptyRange();
 #mark = null;
 #maxRowCount = 0;
-	#maxColumnCount = 0;
+#maxColumnCount = 0;
 
 #keymap = new Map([
 ["f1", {help: "display keyboard help", command: () => this.displayKeyboardHelp().showModal()}],
@@ -66,8 +66,8 @@ this.#ui.load();
 
 constructor (ui, spreadsheet, nRows = 100, nColumns = 26) {
 this.#maxRowCount = nRows;
-	this.#maxColumnCount = nColumns;
-	this.#ui = ui;
+this.#maxColumnCount = nColumns;
+this.#ui = ui;
 const document = ui.document;
 
 if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
@@ -205,20 +205,15 @@ if (Boolean(cancel)) {
 cell.textContent = cell.getAttribute("data-old");
 
 } else {
-this.loadCellsFromModel(this.#spreadsheet.setCellContents(this.#cellToLabel(cell), text, cell.role, this.#range.range));
-//console.log("new grid cell contents: ", cell);
-
-if (not(cell.hasAttribute("data-formula") && this.#range.range.has(label) && this.#range.range.size > 1)) {
-const cells = new Set(this.#range.range);
-cells.delete(label);
-//console.log("created set: ", cells);
-
-for (const name of cells) {
-//console.log("autofilling ", name);
-this.loadCellsFromModel(this.spreadsheet.setCellContents(name, cell.textContent, cell.role));
-} // for
-} else {
-//this.#ui.statusMessage("current cell must be within range to autofill.");
+const label = this.#cellToLabel(cell);
+const range = this.#range.range;
+if (range.size === 0 || (range.size > 0 && not(range.has(label))))
+// either range is empty, or the cell we're editing is not in the range
+this.loadCellsFromModel(this.#spreadsheet.setCellContents(label, text, cell.role, range));
+else if (range.has(label)) {
+ // autofill
+if (not(cell.hasAttribute("data-formula"))) this.#fillConstant(range, text, cell.role);
+else this.#fillFormula (this.#range, cell.getAttribute("data-formula"), cell.role);
 } // if
 } // if
 
@@ -227,6 +222,17 @@ cell.removeAttribute("data-old");
 this.#grid.focus();
 this.#ui.statusMessage("end editing.");
 } // #endEditing
+
+#fillConstant (range, value, role) {
+for (const label of range) {
+this.loadCellsFromModel(this.spreadsheet.setCellContents(label, value, role));
+} // for
+} // #fillConstant
+
+#fillFormula (range, formula, role) {
+if (range.type === "row") fillRowWithFormula(range.range, formula, role);
+else fillColumnWithFormula(range.range, formula, role);
+} // #fillFormula
 
 #displayCellContents (data) {
 //console.log("displayCellContents: ", data);
@@ -238,11 +244,11 @@ cell.textContent = value;
 cell.role = role;
 
 if (data.error) {
-  cell.ariaDescription = data.description;
+cell.ariaDescription = data.description;
 cell.setAttribute("aria-invalid", "true");
 } else {
-  cell.removeAttribute("aria-description");
-  cell.removeAttribute("aria-invalid");
+cell.removeAttribute("aria-description");
+cell.removeAttribute("aria-invalid");
 } // if
 
 if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
@@ -253,8 +259,9 @@ else cell.removeAttribute("formula");
 
 announceCell (cell) {
 const label = this.#cellToLabel(cell);
-	const message = `${label}${cell.dataset.formula? ", has formula" : ""}${this.#range.range.has(label)? ", in range" : ""}`;
-		this.#ui.statusMessage(message);
+const message =
+`${label}${cell.dataset.formula? ", has formula" : ""}${this.#range.range.has(label)? ", in range" : ""}${this.#mark === cell? ", mark set" : ""}`;
+this.#ui.statusMessage(message);
 } // announceCell
 
 #cellToLabel (cell) {
@@ -317,12 +324,17 @@ this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
 if (not(this.#mark)) {
 this.#mark = cell;
 this.#range = emptyRange();
-this.#ui.statusMessage("mark set");
+this.#ui.statusMessage("mark set.");
+return;
+} else if (this.#mark === cell) {
+this.#mark = null;
+this.#ui.statusMessage("mark cleared.");
 return;
 } // if
 
 const range = getRange(this.#mark, cell);
 this.#range = range? range : emptyRange();
+if (range.size === 1) return;
 //console.log("grid.range: ", this.#range);
 this.#mark = null;
 

@@ -56,7 +56,7 @@ cellContents (name) {
     name: cell.name,
     role: cell.role,
     input: cell.input,
-    hasFormula: cell.hasFormula,
+    hasFormula: isFormula(cell.input),
     value: failed? String(value) : value ?? "",
     error: failed? value.code : "",
     description: failed? value.description : ""
@@ -130,12 +130,17 @@ this.#cells.set(name, cell);
 this.#cleanupDependencies(cell.name);
 
 if (isFormula(input)) {
-try {
 cell.formula = createFormula(input.slice(1));
+if (cell.formula instanceof CellError) {
+cell.value = cell.formula;
+return cell;
+} // if
+
+try {
 cell.code = cell.formula.compile();
 } catch (e) {
 cell.code = null;
-	cell.value = new CellError("parse", input);
+	cell.value = new CellError("compile", input);
 return cell;
 } // try
 
@@ -335,7 +340,13 @@ functions = new Map([
 
 
 function createFormula (text) {
+try {
 return math.parse(text);
+
+} catch (e) {
+console.log("createFormula: ", text, "\n", e);
+return new CellError("parse", `${e} : "${text}"`);
+} // try
 } // createFormula
 
 function getFunctions (node) {
@@ -357,6 +368,7 @@ function isString (x) {
 return typeof(x) === "object"? x instanceof String : typeof(x) === "string";
 } // isString
 
+function isFormula (input) {return input.charAt(0) === "=";}
+
 function not (x) {return !x;}
 
-/// test
