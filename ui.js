@@ -73,6 +73,7 @@ setTimeout(() => URL.revokeObjectURL(url), 1000);
 
 
 function statusMessage (text, remove = false) {
+setTimeout(() => {
 if (document.ariaNotify) {
 document.ariaNotify(text);
 return;
@@ -81,4 +82,5 @@ return;
 const status = document.querySelector(".status");
 status.textContent = text;
 if (remove) setTimeout(() => status.textContent = "", 7000);
+}, 70);
 } // statusMessage

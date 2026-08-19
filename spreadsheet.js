@@ -47,7 +47,7 @@ return [...this.#cells.keys()];
 
 cellContents (name) {
   const cell = this.#cells.get(name);
-  if (not(cell)) return {name};
+  if (not(cell)) return {name, role: "gridcell"};
 
   const value = cell.value;
   const failed = value instanceof CellError;
@@ -348,27 +348,4 @@ console.log("createFormula: ", text, "\n", e);
 return new CellError("parse", `${e} : "${text}"`);
 } // try
 } // createFormula
-
-function getFunctions (node) {
-return node
-.filter((node, p) => node.type === "SymbolNode" && p === "fn")
-.map(node => node.name.trim());
-} // getFunctions
-
-// getSymbols excludes function symbol nodes and range nodes
-function getSymbols (node) {
-return node
-.filter((node, path, parent) => node.type === "SymbolNode" && path !== "fn" && parent.type !== "RangeNode")
-.map(node => node.name.trim());
-} // getSymbols
-
-function isFormula (text) {return text.charAt(0) === "=";}
-
-function isString (x) {
-return typeof(x) === "object"? x instanceof String : typeof(x) === "string";
-} // isString
-
-function isFormula (input) {return input.charAt(0) === "=";}
-
-function not (x) {return !x;}
 

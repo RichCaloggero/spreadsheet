@@ -109,9 +109,13 @@ this.announceCell(this.currentCell);
 
 loadCellsFromModel (names = this.#spreadsheet.allCells) {
 //console.log("loadCellsFromModel: ", names);
+let errors = false;
+
 for (const name of names) {
-this.#displayCellContents(this.#spreadsheet.cellContents(name));
+errors = this.#displayCellContents(this.#spreadsheet.cellContents(name));
 } // for
+
+return errors;
 } // loadCellsFromModel
 
 
@@ -198,7 +202,7 @@ const label = this.#cellToLabel(cell);
 if (not(cell.hasAttribute("data-editing"))) return;
 
 const input = cell.querySelector("input");
-const text = input.value;
+const text = input.value.trim();
 cell.innerHTML = "";
 
 if (Boolean(cancel)) {
@@ -207,13 +211,13 @@ cell.textContent = cell.getAttribute("data-old");
 } else {
 const label = this.#cellToLabel(cell);
 const range = this.#range.range;
-if (range.size === 0 || (range.size > 0 && not(range.has(label))))
+if (range.size === 0 || not(range.has(label)))
 // either range is empty, or the cell we're editing is not in the range
 this.loadCellsFromModel(this.#spreadsheet.setCellContents(label, text, cell.role, range));
 else if (range.has(label)) {
  // autofill
-if (not(cell.hasAttribute("data-formula"))) this.#fillConstant(range, text, cell.role);
-else this.#fillFormula (this.#range, cell.getAttribute("data-formula"), cell.role);
+if (not(isFormula(text))) this.#fillConstant(range, text, cell.role);
+else this.#fillFormula (label, this.#range, text, cell.role);
 } // if
 } // if
 
@@ -224,15 +228,67 @@ this.#ui.statusMessage("end editing.");
 } // #endEditing
 
 #fillConstant (range, value, role) {
+//console.log("fillConstant: ", range, value, role);
 for (const label of range) {
 this.loadCellsFromModel(this.spreadsheet.setCellContents(label, value, role));
 } // for
 } // #fillConstant
 
-#fillFormula (range, formula, role) {
-if (range.type === "row") fillRowWithFormula(range.range, formula, role);
-else fillColumnWithFormula(range.range, formula, role);
+#fillFormula (label, range, formula, role) {
+//console.log("fillFormula: ", label, range, formula, role);
+
+const e = math.parse(formula.slice(1));
+const symbols = getSymbols(e);
+//console.log("- symbols: ", symbols);
+
+const targetType = range.type === "row"? 0 : 1;
+const targetTypeString = ["row", "column"][targetType];
+//console.log("- targetType: ", `${targetTypeString} (${targetType})`);
+
+const target = new Set();
+symbols.map(label => parseLabel(label))
+.forEach(c => target.add(c[targetType]));
+//console.log("- target: ", target);
+
+if (target.size > 1) {
+this.#ui.statusMessage(`all references must have same ${targetTypeString}`);
+return;
+} // if
+ 
+if (target.has(parseLabel(label)[targetType])) {
+this.#ui.statusMessage(`all symbols must reference a different ${targetTypeString} than current`);
+return;
+} // if
+
+const targetIndex  = [...target.values()][0];
+//console.log("- targetIndex: ", targetIndex);
+
+for (const label of range.range.values()) {
+const c = parseLabel(label);
+
+const newSymbols = new Map(
+symbols.map(s => {
+const c0 = targetType === 0?
+[targetIndex, c[1]]
+: [c[0], targetIndex];
+return [s, formatLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
+}) // map
+) // newSymbols
+//console.log("- cell coordinates: ", c, " newSymbols: ", newSymbols);
+
+const formula = replaceSymbols(e, newSymbols).toString();
+//console.log("- formula: ", formula);
+
+this.loadCellsFromModel(this.spreadsheet.setCellContents(label, `=${formula}`, role));
+} // for
 } // #fillFormula
+
+#fillRowWithFormula (range, formula, symbols, role) {
+} // #fillRowWithFormula
+
+#fillColumnWithFormula (range, formula, symbols, role) {
+this.#notImplemented("fillColumnWithFormula");
+} // #fillColumnWithFormula
 
 #displayCellContents (data) {
 //console.log("displayCellContents: ", data);
@@ -253,6 +309,8 @@ cell.removeAttribute("aria-invalid");
 
 if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
 else cell.removeAttribute("formula");
+
+return data.error;
 } // #displayCellContents
 
 
@@ -401,8 +459,10 @@ e.stopImmediatePropagation();
 command();
 } // executeCommand
 
+#notImplemented (name) {this.#ui.statusMessage(`${name}: not implemented.`);}
 } // class Grid
 
+/// Grid helpers
 
 function getRow (cell) {return [...cell.parentElement.children];}
 
@@ -454,4 +514,4 @@ return {type: "empty", range: new Set([])};
 
 function rowIndex (cell) {return cell.parentElement.rowIndex;}
 function columnIndex (cell) {return cell.cellIndex;}
-function not(x) {return !x;}
+
