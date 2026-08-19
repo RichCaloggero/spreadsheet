@@ -6,6 +6,8 @@ function isString (x) {
 return typeof(x) === "object"? x instanceof String : typeof(x) === "string";
 } // isString
 
+function isFunction (x) {return typeof(x) === "function" || x instanceof Function;}
+
 // getSymbols excludes function symbol nodes and range nodes
 function getSymbols (node) {
 return node

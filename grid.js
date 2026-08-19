@@ -39,7 +39,7 @@ if (this.#mark) {
 this.#mark = null;
 this.#ui.statusMessage("Selection canceled.");
 } else if (this.#range.range.size > 0) {
-this.#range = emptyRange();
+this.#clearRange();
 this.#ui.statusMessage("range removed.");
 } // if
 }}],
@@ -127,8 +127,7 @@ cell.ariaDescription = "";
 cell.innerHTML = "&nbsp;";
 } // forEach cell
 
-this.#mark = null;
-this.#range = emptyRange();
+this.#clearRange();
 } // clear
 
 get dom () {return this.#grid;}
@@ -144,9 +143,13 @@ this.#generateDescription(cell);
 
 #unselectAllCells () {this.#allCells().forEach(cell => cell.setAttribute("aria-selected", "false"));}
 
-#allCells (expression) {
-return [...this.#grid.querySelectorAll(`td${expression? expression : ""}`)];
-} // #allCells
+#allCells () {return [...this.#grid.querySelectorAll("td")];}
+
+findCells (expression) {
+return isFunction(expression)?
+[...this.#grid.querySelectorAll("td")].filter(expression)
+: [...this.#grid.querySelectorAll(expression)];
+} // findCells
 
 get spreadsheet () {return this.#spreadsheet;}
 
@@ -164,6 +167,8 @@ const cell = this.#labelToCell(label);
 //console.log("deleting: ", label);
 this.loadCellsFromModel(this.#spreadsheet.deleteCell(label));
 cell.removeAttribute("data-formula");
+cell.ariaDescription = "";
+cell.removeAttribute("aria-invalid");
 cell.textContent = "";
 cell.innerHTML = "";
 } // for
@@ -306,7 +311,10 @@ cell.removeAttribute("aria-invalid");
 } // if
 
 if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
-else cell.removeAttribute("formula");
+else cell.removeAttribute("data-formula");
+
+typeof(value) === "number"? cell.setAttribute("data-type", "number")
+ : cell.removeAttribute("data-type");
 
 return data.error;
 } // #displayCellContents
@@ -377,27 +385,59 @@ this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
 } // #setRole
 
 #defineRange (cell) {
-if (not(this.#mark)) {
+if (not(this.#mark) && not(this.#range.range.has(cell))) {
+this.#clearRange();
 this.#mark = cell;
-this.#range = emptyRange();
+cell.setAttribute("data-mark", true);
 this.#ui.statusMessage("mark set.");
 return;
 } else if (this.#mark === cell) {
+cell.removeAttribute("data-mark");
 this.#mark = null;
 this.#ui.statusMessage("mark cleared.");
 return;
 } // if
 
-const range = getRange(this.#mark, cell);
-this.#range = range? range : emptyRange();
-if (range.size === 1) return;
-//console.log("grid.range: ", this.#range);
+this.#range = this.#getRange(this.#mark, cell);
+
+if (this.#range.type === "empty") {
+this.#ui.statusMessage("invalid range -- must be consecutive in either same row or same column; try again");
+this.#setCurrentCell(this.#mark);
+return;
+} // if
+//console.log("defineRange: ", this.#range);
+cell.removeAttribute("data-mark");
 this.#mark = null;
 
-if (this.#range.type) this.#ui.statusMessage(`${this.#range.range.size} cells in ${this.#range.type} range.`);
-else this.#ui.statusMessage("invalid range");
+for (const label of this.#range.range) {
+const cell = this.#labelToCell(label);
+cell.setAttribute("data-in-range", "true");
+} // for
+
+this.#ui.statusMessage(`${this.#range.range.size} cells in ${this.#range.type} range.`);
 } // #defineRange
 
+#getRange (cell1, cell2) {
+const cells = isSameRow(cell1, cell2)? getRow(cell1)
+: isSameColumn(cell1, cell2)? getColumn(cell1)
+: null;
+if (not(cells)) return emptyRange();
+
+const type = isSameRow(cell1, cell2)? "row" : "column";
+
+return {
+type, range: new Set(cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))
+.map(cell => formatLabel(rowIndex(cell), columnIndex(cell), this.maxRowCount, this.maxColumnCount))
+)};
+} // #getRange
+
+#clearRange () {
+for (const cell of this.findCells("td[data-in-range], td[data-mark]")) {
+cell.removeAttribute("data-in-range");
+cell.removeAttribute("data-mark");
+} // for
+this.#range = emptyRange();
+} // clearRange
 
 #enableNavigation () {
 this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
@@ -472,19 +512,6 @@ const index = cell.cellIndex;
 return [...cell.parentElement.parentElement.children].map($row => $row.children[index]);
 } // getColumn
 
-function getRange (cell1, cell2) {
-const cells = isSameRow(cell1, cell2)? getRow(cell1)
-: isSameColumn(cell1, cell2)? getColumn(cell1)
-: null;
-if (not(cells)) return null;
-
-const type = isSameRow(cell1, cell2)? "row" : "column";
-
-return {
-type, range: new Set(cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))
-.map(cell => formatLabel(rowIndex(cell), columnIndex(cell), this.maxRowCount, this.maxColumnCount))
-)};
-} // getRange
 
 function isSameRow (cell1, cell2) {
 return 	cell1.parentElement.rowIndex === cell2.parentElement.rowIndex;
