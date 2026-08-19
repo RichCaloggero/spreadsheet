@@ -8,7 +8,7 @@ class Grid {
 #maxColumnCount = 0;
 
 #keymap = new Map([
-["f1", {help: "display keyboard help", command: () => this.displayKeyboardHelp().showModal()}],
+["f1", {help: "display keyboard help", command: () => this.displayHelp().showModal()}],
 
 // navigation
 ["arrowRight", {help: "move right one cell", command: () =>  this.#setCurrentCell(this.#nextCellInRow())}],
@@ -55,10 +55,8 @@ this.#ui.statusMessage("range removed.");
 
 // load / save
 ["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.save())}],
-["control+o", {help: "load", command: () => this.#ui.load(this)}],
-
-["control+l", {help: "load", command: () => {
-this.#ui.load();
+["control+o", {help: "open", command: () => this.#ui.load(this)}],
+["control+l", {help: "load", command: () => {this.#ui.load(this);
 }}],
 
 
@@ -405,7 +403,7 @@ else this.#ui.statusMessage("invalid range");
 this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
 } // #enableNavigation
 
-displayKeyboardHelp () {
+displayHelp () {
 if (not(this.#ui.document.body.querySelector("#help-dialog")))
 this.#ui.document.body.insertAdjacentHTML("beforeEnd",
 `<dialog popover id="help-dialog" closedBy="any">
@@ -414,6 +412,7 @@ this.#ui.document.body.insertAdjacentHTML("beforeEnd",
 <button autofocus onclick="this.parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
 </div><!-- .head -->
 <div class="body">
+${generateHelpText(`
 <table>
 ${[...this.#keymap.entries()].map(entry => {
 const [key, data] = entry;
@@ -422,7 +421,9 @@ return `<tr>
 <td>${key}</td>
 </tr>`;
 }).join("\n")}
-</table></div>
+</table>
+`)}
+</div>
 </div></dialog>
 `); // insertAdjacentHTML
 
