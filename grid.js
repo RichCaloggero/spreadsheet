@@ -111,13 +111,12 @@ cell.innerHTML = "&nbsp;";
 } // clear
 
 setMark () {
-    console.log("setMark: ", this.currentCell);
     this.clearMark();
 this.currentCell.setAttribute("data-mark", true);
 } // setMark
 
 clearMark () {
-    this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
+this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 } // #clearMark
 
 
@@ -206,11 +205,22 @@ typeof(value) === "number"? cell.setAttribute("data-type", "number")
 return data.error;
 } // #displayCellContents
 
+cleanupDeletedCell (label) {
+    const cell = this.labelToCell(label);
+    cell.removeAttribute("data-formula");
+cell.ariaDescription = "";
+cell.removeAttribute("aria-invalid");
+cell.textContent = "";
+cell.innerHTML = "";
+this.clearRange();
+} // cleanupDeletedCell
+
+
 
 #announceCell (cell = this.currentCell) {
 const label = this.cellToLabel(cell);
 const message =
-`${label}${cell.dataset.formula? ", has formula" : ""}${cell.hasAttribute("data-in-range")? ", in range" : ""}${cell.hasAttribute("data-mark")? ", mark set" : ""}`;
+`${label}${cell.dataset.formula? ", has formula" : ""}${cell.hasAttribute("data-mark")? ", mark set" : ""}`;
 this.statusMessage(message);
 } // announceCell
 
@@ -239,6 +249,20 @@ const role = cell.role === "gridcell"? "columnheader" : "gridcell";
 getRow(cell).forEach(cell => cell.role = role);
 } // #markRowAsColumnHeaders
 
+markRange (labels) {
+for (const label of labels) {
+    this.labelToCell(label).setAttribute("data-in-range", true);
+} // for
+
+this.statusMessage(`${labels.size} items in range.`);
+} // mmarkRange
+
+clearRange () {
+    this.#grid.querySelectorAll("td[data-in-range], td[data-mark]").forEach(x => {
+        x.removeAttribute("data-in-range");
+    x.removeAttribute("data-mark");
+});
+} // clearRange
 
 get row () {
     return new Set(
@@ -313,3 +337,4 @@ return {type: "empty", range: new Set([])};
 
 function rowIndex (cell) {return cell.parentElement.rowIndex;}
 function columnIndex (cell) {return cell.cellIndex;}
+

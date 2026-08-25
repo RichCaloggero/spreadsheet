@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Firefox against localhost",
+      "type": "firefox",
+      "request": "launch",
+      "reAttach": true,
+      "url": "http://localhost:8000/ui.html",
+      "webRoot": "${workspaceFolder}",
+    
+          "log": {
+        "consoleLevel": {
+          "default": "Error" // Forces all Firefox console errors into VS Code
+        }
+      }
+    }
+  ]
+}

@@ -68,7 +68,17 @@ this.#view.statusMessage("mark cleared.");
   moveTo (label) {
   if (!this.#view.labelToCell(label)) return false;   // off-grid, stay put
   this.#view.moveTo(label);
-  if (this.#mark) this.#view.setRange(rangeBetween(this.#mark, label));
+  if (this.#mark) {
+  const range =       this.#getRange();
+if (range)     {
+  this.#view.markRange(range);
+} else {
+  this.#mark = null;
+  this.#view.clearRange();
+  this.#view.statusMessage("range cleared.");
+} // if
+} // if
+  
   return true;
 } // moveTo
 
@@ -111,22 +121,20 @@ else this.#renderCells(this.#model.setCellContents(label));
   
 
 delete () {
-const label = this.cursor;
-const range = getRange();
-const labels =  (range.size > 0 && range.has(label))?
+const label = this.#view.cursor;
+const range = this.#getRange();
+//console.log("delete: ", range);
+const labels =  (range && range.has(label))?
 range : new Set([label]);
 
 for (const label of labels) {
 //console.log("deleting: ", label);
 this.#renderCells(this.#model.deleteCell(label));
-cell.removeAttribute("data-formula");
-cell.ariaDescription = "";
-cell.removeAttribute("aria-invalid");
-cell.textContent = "";
-cell.innerHTML = "";
+this.#mark = null;
+this.#view.cleanupDeletedCell(label);
 } // for
 
-this.#view.statusMessage(`${cells.size} cells deleted.`);
+this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
 } // delete
 
 execute (key, data, label) {
@@ -134,17 +142,26 @@ if (key === "Escape" && this.#view.isEditing) return;
 if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) data.command(this);
 } // executeCommand
 
-get range () {
-  const cur = this.#view.cursor;
-  if (!this.#mark) return [cur];
-  const [mc, mr] = parseLabel(this.#mark), [cc, cr] = parseLabel(cur);
-  if (mr === cr) return rowSegment(mr, mc, cc);
-  if (mc === cc) return colSegment(mc, mr, cr);
+#getRange (l1 = this.#mark, l2 = this.#view.cursor) {
+  if (not(l1)) return null;
+  const [mr, mc] = parseLabel(l1), [cr, cc] = parseLabel(l2);
+  if (mr === cr) return new Set(rowSegment(mr, mc, cc));
+if (mc === cc) return new Set (columnSegment(mc, mr, cr));
   return null;              // off-axis
-} // getRange
+} // #getRange
 
 markRowAsColumnHeaders () {this.#view.setColumnHeaders();}
 markColumnAsRowHeaders () {this.#view.setRowHeaders();}
+
+cancel () {
+  if (this.#view.isEditing) {
+    this.#view.endEditing("cancel");
+  } else if (this.#mark) {
+    this.#view.clearRange();
+    this.#mark = null;
+    this.#view.statusMessage ("range cleared.");
+  } // if
+} // cancel
 
 displayHelpDialog () {this.#view.displayHelpDialog();}
 
@@ -157,7 +174,7 @@ function displayHelpDialog (controller) {
 controller.displayHelpDialog();
 } // displayHelpDialog
 
-function cancel (c) {return c.endEditing("cancel");}
+function cancel (c) {return c.cancel();}
 
 function nextCellInRow (c) {return moveBy(c, 0,1);} // nextCellInRow
 function previousCellInRow (c) {return moveBy(c, 0,-1);} // nextCellInRow
@@ -189,7 +206,7 @@ function load (c) {c.load();}
 function save (c) {c.save();}
 
 function autosum (c) {c.autoSum();}
-    /*if (range.range.size > 0) controller.startEditing(`=sum(${expandRange(#range)})`);
+    /*if this.#getRange().size > 0) controller.startEditing(`=sum(${expandRange(#range)})`);
 else statusMessage("Autosum has no selection.");
 } // autosum
 */
