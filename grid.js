@@ -1,84 +1,25 @@
-class Grid {
+export class Grid {
 #grid = null;
-#spreadsheet = null;
-#ui = null;
-#range = emptyRange();
-#mark = null;
+#helpDialog = null;
 #maxRowCount = 0;
 #maxColumnCount = 0;
 
-#keymap = new Map([
-["f1", {help: "display keyboard help", command: () => this.displayHelp().showModal()}],
 
-// navigation
-["arrowRight", {help: "move right one cell", command: () =>  this.#setCurrentCell(this.#nextCellInRow())}],
-["arrowLeft", {help: "move one cell left", command: () => this.#setCurrentCell(this.#previousCellInRow())}],
-["arrowDown", {help: "move one cell down", command: () => this.#setCurrentCell(this.#nextCellInColumn())}],
-["arrowUp", {help: "move one cell up", command: () => this.#setCurrentCell(this.#previousCellInColumn())}],
-
-["home", {help: "first cell in row", command: () => this.#setCurrentCell(this.currentCell.parentElement.firstElementChild)}],
-["end", {help: "last cell in row", command: () => this.#setCurrentCell(this.currentCell.parentElement.lastElementChild)}],
-["shift+home", {help: "first cell in column", command: () => this.#setCurrentCell(getColumn(this.currentCell)[0])}],
-["shift+end", {help: "last cell in column", command: () => this.#setCurrentCell(getColumn(this.currentCell).slice(-1)[0])}],
-
-["control+home", {help: "first cell in sheet", command: () => this.#setCurrentCell(this.dom.querySelector("td"))}],
-["control+end", {help: "last cell in sheet", command: () => this.#setCurrentCell([...this.dom.querySelectorAll("td")].slice(-1)[0])}],
-
-// editing
-["f2", {help: "edit current cell", command: () => this.#startEditing()}],
-//["=", {help: "insert formula command: () => this.#startEditing("=")}],
-["alt+=", {help: "autosum over defined range, if any", command: () => {
-if (this.#range.range.size > 0) this.#startEditing(`=sum(${expandRange(this.#range)})`);
-else this.#ui.statusMessage("Autosum has no selection.");
-} // if
-}],
-
-["enter", {help: "end editing", editMode: true, command: () => this.#endEditing()}],
-["escape", {help: "cancel range definition or remove already defined range", command: () => {
-if (this.#mark) {
-this.#mark = null;
-this.#ui.statusMessage("Selection canceled.");
-} else if (this.#range.range.size > 0) {
-this.#clearRange();
-this.#ui.statusMessage("range removed.");
-} // if
-}}],
-
-["delete", {help: "delete cell", command: () => this.#deleteCell(this.currentCell)}],
-
-// row and column tagging
-["control+alt+shift+c", {help: "all cells in row become column header cells", command: () => this.#markRowAsColumnHeaders(this.currentCell)}],
-["control+alt+shift+r", {help: "all cells in column become row header cells", command: () => this.#markColumnAsRowHeaders(this.currentCell)}],
-
-// ranges
-["control+space", {help: "begin / end marking range", command: () => this.#defineRange(this.currentCell)}],
-
-// load / save
-["control+s", {help: "save", command: () => this.#ui.save(this.spreadsheet.save())}],
-["control+o", {help: "open", command: () => this.#ui.load(this)}],
-["control+l", {help: "load", command: () => {this.#ui.load(this);
-}}],
-
-
-]); // keymap
-
-constructor (ui, spreadsheet, nRows = 100, nColumns = 26) {
+constructor (document, helpDialog, nRows = 100, nColumns = 26) {
+this.#helpDialog = helpDialog;
 this.#maxRowCount = nRows;
 this.#maxColumnCount = nColumns;
-this.#ui = ui;
-const document = ui.document;
 
 if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
-if (not(spreadsheet instanceof Spreadsheet)) throw new Error("second argument to Grid() must be a Spreadsheet object");
 
 const grid = this.#grid = document.createElement("table");
-this.#spreadsheet = spreadsheet;
 
 for (let i=0; i<nRows; i++) {
 const row = document.createElement("tr");
 
 for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
+cell.dataset.label = toLabel(i, j);
 cell.role = "gridcell";
 cell.innerHTML = "&nbsp";
 cell.tabIndex = -1;
@@ -92,48 +33,93 @@ grid.appendChild(row);
 grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
-this.#enableNavigation();
 
 
 this.#unselectAllCells();
 
-this.loadCellsFromModel();
 
 setTimeout(() => {
 grid.focus();
-this.announceCell(this.currentCell);
+this.#announceCell(this.currentCell);
 }, 50);
 } // constructor
 
-loadCellsFromModel (names = this.#spreadsheet.allCells) {
-//console.log("loadCellsFromModel: ", names);
-let errors = false;
+get dom () {return this.#grid;}
+get currentCell () {return this.#grid.ariaActiveDescendantElement;}
+get cursor () {  return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
+set cursor (label) {this.#grid.activeDescendantElement = this.labelToCell(label);}
 
-for (const name of names) {
-errors = this.#displayCellContents(this.#spreadsheet.cellContents(name));
-} // for
+get maxRowCount () {return this.#maxRowCount;}
+get maxColumnCount () {return this.#maxColumnCount;}
+get helpDialog() {return this.#helpDialog;}
+get value () {return this.getValue(this.cursor);}
+get formula () {return this.getFormula(this.cursor);}
+get isEditing () {return this.getIsEditing(this.cursor);}
 
-return errors;
-} // loadCellsFromModel
+getValue (label) {return this.labelToCell(label).textContent;}
+getFormula (label) {return this.labelToCell(label).dataset.formula;}
+getIsEditing (label) {return this.labelToCell(label).hasAttribute("data-editing");}
+setRowHeader (label) {this.labelToCell(label).role = "rowheader";}
+setColumnHeader (label) {this.labelToCell(label).role = "columnheader";}
+setGridCell (label) {this.labelToCell(label).role = "gridcell"}
+
+moveTo(label) {
+    const oldCell = this.currentCell;
+    const cell = this.labelToCell(label);
+
+    if (cell && cell !== oldCell) {
+        this.#setCurrentCell(cell);
+                this.#announceCell(cell);
+                    return true;
+} // if
+
+return false;
+} // moveTo
+
+firstLabelInRow (label) {return this.cellToLabel(this.#firstCellInRow(this.labelToCell(label)));}
+lastLabelInRow (label) {return this.cellToLabel(this.#lastCellInRow(this.labelToCell(label)));}
+firstLabelInColumn (label) {return this.cellToLabel(this.#firstCellInColumn(this.labelToCell(label)));}
+lastLabelInColumn (label) {return this.cellToLabel(this.#lastCellInColumn(this.labelToCell(label)));}
+firstLabelInGrid (label) {return this.cellToLabel(this.#firstCellInGrid(this.labelToCell(label)));}
+lastLabelInGrid (label) {return this.cellToLabel(this.#lastCellInGrid(this.labelToCell(label)));}
+
+#firstCellInRow (cell) {return cell.parentElement.firstElementChild;}
+#lastCellInRow (cell) {return cell.parentElement.lastElementChild;}
+#firstCellInColumn (cell) {return cell.parentElement.parentElement.firstElementChild.cell.cellIndex;}
+#lastCellInColumn (cell) {return cell.parentElement.parentElement.lastElementChild.cell.cellIndex;}
+#firstCellInGrid (cell) {return cell.parentElement.parentElement.firstElementChild.firstElementChild;}
+#lastCellInGrid (cell) {return cell.parentElement.parentElement.lastElementChild.lastElementChild;}
+
+    bind(type, handler) {
+    this.#grid.addEventListener(type, handler);
+} // bind
+
 
 
 clear () {
 for (const cell of this.dom.querySelectorAll("td")) {
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-formula");
+cell.removeAttribute("data-in-range");
+cell.removeAttribute("data-mark");
+cell.removeAttribute("aria-invalid");
 cell.role = "gridcell";
 cell.ariaDescription = "";
 
 cell.innerHTML = "&nbsp;";
 } // forEach cell
-
-this.#clearRange();
 } // clear
 
-get dom () {return this.#grid;}
-get currentCell () {return this.#grid.ariaActiveDescendantElement;}
-get maxRowCount () {return this.#maxRowCount;}
-get maxColumnCount () {return this.#maxColumnCount;}
+setMark () {
+    console.log("setMark: ", this.currentCell);
+    this.clearMark();
+this.currentCell.setAttribute("data-mark", true);
+} // setMark
+
+clearMark () {
+    this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
+} // #clearMark
+
 
 #setCurrentCell (cell) {
 this.#grid.ariaActiveDescendantElement = cell;
@@ -151,38 +137,13 @@ return isFunction(expression)?
 : [...this.#grid.querySelectorAll(expression)];
 } // findCells
 
-get spreadsheet () {return this.#spreadsheet;}
 
 #generateDescription (cell) {
 } // #generateDescription
 
-#deleteCell (cell) {
-const label = this.#cellToLabel(cell);
-const range = this.#range.range;
-const cells =  (range.size > 0 && range.has(label))?
-range : new Set([label]);
-
-for (const label of cells) {
-const cell = this.#labelToCell(label);
-//console.log("deleting: ", label);
-this.loadCellsFromModel(this.#spreadsheet.deleteCell(label));
-cell.removeAttribute("data-formula");
-cell.ariaDescription = "";
-cell.removeAttribute("aria-invalid");
-cell.textContent = "";
-cell.innerHTML = "";
-} // for
-
-this.#ui.statusMessage(`${cells.size} cells deleted.`);
-} // deleteCell
 
 
-#startEditing (overrideText) {
-if (this.#mark) {
-this.#ui.statusMessage("cannot modify during selection...");
-return;
-} // if
-
+startEditing (overrideText) {
 const cell = this.currentCell;
 if (cell.hasAttribute("data-editing")) return;
 
@@ -199,104 +160,30 @@ cell.querySelector("input").value = text;
 cell.querySelector("input").focus();
 } // #startEditing
 
-#endEditing (cancel = false) {
+endEditing (cancel = false) {
 const cell = this.currentCell;
-const label = this.#cellToLabel(cell);
-if (not(cell.hasAttribute("data-editing"))) return;
+const label = this.cellToLabel(cell);
+if (not(cell.hasAttribute("data-editing"))) return false;
 
 const input = cell.querySelector("input");
 const text = input.value.trim();
 cell.innerHTML = "";
+if (Boolean(cancel)) return false;
 
-if (Boolean(cancel)) {
-cell.textContent = cell.getAttribute("data-old");
-
-} else {
-const label = this.#cellToLabel(cell);
-const range = this.#range.range;
-if (range.size === 0 || not(range.has(label)))
-// either range is empty, or the cell we're editing is not in the range
-this.loadCellsFromModel(this.#spreadsheet.setCellContents(label, text, cell.role, range));
-else if (range.has(label)) {
- // autofill
-if (not(isFormula(text))) this.#fillConstant(range, text, cell.role);
-else this.#fillFormula (label, this.#range, text, cell.role);
-} // if
-} // if
-
+cell.textContent = text;
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-old");
 this.#grid.focus();
-this.#ui.statusMessage("end editing.");
-} // #endEditing
+this.statusMessage("end editing.");
 
-#fillConstant (range, value, role) {
-//console.log("fillConstant: ", range, value, role);
-for (const label of range) {
-this.loadCellsFromModel(this.spreadsheet.setCellContents(label, value, role));
-} // for
-} // #fillConstant
+return true;
+} // endEditing
 
-#fillFormula (label, range, formula, role) {
-//console.log("fillFormula: ", label, range, formula, role);
-
-const e = math.parse(formula.slice(1));
-const symbols = getSymbols(e);
-//console.log("- symbols: ", symbols);
-
-const targetType = range.type === "row"? 0 : 1;
-const targetTypeString = ["row", "column"][targetType];
-//console.log("- targetType: ", `${targetTypeString} (${targetType})`);
-
-const target = new Set();
-symbols.map(label => parseLabel(label))
-.forEach(c => target.add(c[targetType]));
-//console.log("- target: ", target);
-
-if (target.size > 1) {
-this.#ui.statusMessage(`all references must have same ${targetTypeString}`);
-return;
-} // if
- 
-if (target.has(parseLabel(label)[targetType])) {
-this.#ui.statusMessage(`all symbols must reference a different ${targetTypeString} than current`);
-return;
-} // if
-
-const targetIndex  = [...target.values()][0];
-//console.log("- targetIndex: ", targetIndex);
-
-for (const label of range.range.values()) {
-const c = parseLabel(label);
-
-const newSymbols = new Map(
-symbols.map(s => {
-const c0 = targetType === 0?
-[targetIndex, c[1]]
-: [c[0], targetIndex];
-return [s, formatLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
-}) // map
-) // newSymbols
-//console.log("- cell coordinates: ", c, " newSymbols: ", newSymbols);
-
-const formula = replaceSymbols(e, newSymbols).toString();
-//console.log("- formula: ", formula);
-
-this.loadCellsFromModel(this.spreadsheet.setCellContents(label, `=${formula}`, role));
-} // for
-} // #fillFormula
-
-#fillRowWithFormula (range, formula, symbols, role) {
-} // #fillRowWithFormula
-
-#fillColumnWithFormula (range, formula, symbols, role) {
-this.#notImplemented("fillColumnWithFormula");
-} // #fillColumnWithFormula
 
 #displayCellContents (data) {
 //console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula} = data;
-const cell = this.#labelToCell(name);
+const cell = this.labelToCell(name);
 //console.log("displayCellContents: ", name, input, role, value, hasFormula, cell);
 
 cell.textContent = value;
@@ -320,190 +207,74 @@ return data.error;
 } // #displayCellContents
 
 
-
-announceCell (cell) {
-const label = this.#cellToLabel(cell);
+#announceCell (cell = this.currentCell) {
+const label = this.cellToLabel(cell);
 const message =
-`${label}${cell.dataset.formula? ", has formula" : ""}${this.#range.range.has(label)? ", in range" : ""}${this.#mark === cell? ", mark set" : ""}`;
-this.#ui.statusMessage(message);
+`${label}${cell.dataset.formula? ", has formula" : ""}${cell.hasAttribute("data-in-range")? ", in range" : ""}${cell.hasAttribute("data-mark")? ", mark set" : ""}`;
+this.statusMessage(message);
 } // announceCell
 
-#cellToLabel (cell) {
-return formatLabel(this.#row(cell), this.#column(cell), this.maxRowCount, this.maxColumnCount);
-} // #cellToLabel
+cellToLabel (cell) {
+return cell.closest("[data-label]")?.dataset.label ?? null;
+} // cellToLabel
 
-#labelToCell (label) {
-const rows = this.dom.querySelector("tr").parentElement.children;
-const [r, c] = parseLabel(label, this.maxRowCount, this.maxColumnCount);
-return rows[r].children[c];
-} // #labelToCell
-
-#row (cell = this.currentCell) {
-return rowIndex(cell);
-} // row
-
-#column (cell = this.currentCell) {
-return columnIndex(cell);
-} // colun
+labelToCell (label) {
+return this.#grid.querySelector(`td[data-label="${label}"]`);
+} // labelToCell
 
 
-#nextCellInRow () {
-const next = this.currentCell.nextElementSibling;
-return next? next : this.currentCell;
-} // #nextCellInRow
+setColumnHeaders () {markRowAsColumnHeaders(this.currentCell);}
+setRowHeaders () {markColumnAsRowHeaders(this.currentCell);}
 
-#previousCellInRow () {
-const previous = this.currentCell.previousElementSibling;
-return previous? previous : this.currentCell;
-} // #previousCellInRow
-
-#nextCellInColumn () {
-const next = this.currentCell.parentElement.nextElementSibling;
-return next? next.children[this.currentCell.cellIndex] : this.currentCell;
-} // #nextCellInColumn
-
-#previousCellInColumn () {
-const previous = this.currentCell.parentElement.previousElementSibling;
-return previous? previous.children[this.currentCell.cellIndex] : this.currentCell;
-} // #previousCellInColumn
 
 #markColumnAsRowHeaders (cell) {
 const role = cell.role === "gridcell"? "rowheader" : "gridcell";
 
-getColumn(cell).forEach(cell => this.#setRole(cell, role));
+getColumn(cell).forEach(cell => cell.role = role);
 } // #markColumnAsRowHeaders
 
 #markRowAsColumnHeaders (cell) {
 const role = cell.role === "gridcell"? "columnheader" : "gridcell";
 
-getRow(cell).forEach(cell => this.#setRole(cell, role));
+getRow(cell).forEach(cell => cell.role = role);
 } // #markRowAsColumnHeaders
 
-#setRole (cell, role) {
-cell.role = role;
-this.#spreadsheet.setRole(this.#cellToLabel(cell), role);
-} // #setRole
 
-#defineRange (cell) {
-if (not(this.#mark) && not(this.#range.range.has(cell))) {
-this.#clearRange();
-this.#mark = cell;
-cell.setAttribute("data-mark", true);
-this.#ui.statusMessage("mark set.");
-return;
-} else if (this.#mark === cell) {
-cell.removeAttribute("data-mark");
-this.#mark = null;
-this.#ui.statusMessage("mark cleared.");
-return;
-} // if
+get row () {
+    return new Set(
+        getRow(this.currentCell)
+        .map(cell => cellToLabel(cell))
+    ); // new Set
+} // get row
 
-this.#range = this.#getRange(this.#mark, cell);
+get column () {
+    return new Set(
+        getColumn(this.currentCell)
+        .map(cell => cellToLabel(cell))
+    ); // new Set
+} // get column
 
-if (this.#range.type === "empty") {
-this.#ui.statusMessage("invalid range -- must be consecutive in either same row or same column; try again");
-this.#setCurrentCell(this.#mark);
+statusMessage (text, remove = false) {
+setTimeout(() => {
+if (document.ariaNotify) {
+document.ariaNotify(text);
 return;
 } // if
-//console.log("defineRange: ", this.#range);
-cell.removeAttribute("data-mark");
-this.#mark = null;
 
-for (const label of this.#range.range) {
-const cell = this.#labelToCell(label);
-cell.setAttribute("data-in-range", "true");
-} // for
+const status = document.querySelector("[role=status]");
+status.textContent = text;
+if (remove) setTimeout(() => status.textContent = "", 7000);
+}, 70);
+} // statusMessage
 
-this.#ui.statusMessage(`${this.#range.range.size} cells in ${this.#range.type} range.`);
-} // #defineRange
+displayHelpDialog () {this.#helpDialog.showModal();}
 
-#getRange (cell1, cell2) {
-const cells = isSameRow(cell1, cell2)? getRow(cell1)
-: isSameColumn(cell1, cell2)? getColumn(cell1)
-: null;
-if (not(cells)) return emptyRange();
-
-const type = isSameRow(cell1, cell2)? "row" : "column";
-
-return {
-type, range: new Set(cellsBetween(cells, cells.indexOf(cell1), cells.indexOf(cell2))
-.map(cell => formatLabel(rowIndex(cell), columnIndex(cell), this.maxRowCount, this.maxColumnCount))
-)};
-} // #getRange
-
-#clearRange () {
-for (const cell of this.findCells("td[data-in-range], td[data-mark]")) {
-cell.removeAttribute("data-in-range");
-cell.removeAttribute("data-mark");
-} // for
-this.#range = emptyRange();
-} // clearRange
-
-#enableNavigation () {
-this.#grid.addEventListener("keydown", e => this.#keydownHandler(e));
-} // #enableNavigation
-
-displayHelp () {
-if (not(this.#ui.document.body.querySelector("#help-dialog")))
-this.#ui.document.body.insertAdjacentHTML("beforeEnd",
-`<dialog popover id="help-dialog" closedBy="any">
-<div class="head">
-<h2>Keyboard Help</h2>
-<button autofocus onclick="this.parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
-</div><!-- .head -->
-<div class="body">
-${generateHelpText(`
-<table>
-${[...this.#keymap.entries()].map(entry => {
-const [key, data] = entry;
-return `<tr>
-<th>${data.help}</th>
-<td>${key}</td>
-</tr>`;
-}).join("\n")}
-</table>
-`)}
-</div>
-</div></dialog>
-`); // insertAdjacentHTML
-
-return this.#ui.document.body.querySelector("#help-dialog");
-} // help
-
-
-
-#keydownHandler (e) {
-const key = new Key(e).toString();
-if (key.length === 0) return false;
-//console.log("keydown: ", key);
-const cell = this.currentCell;
-
-//console.log("keydown: ", key, this.currentCell);
-if (this.#keymap.has(key) ) {
-const data = this.#keymap.get(key);
-//console.log(`key: ${key}: ${data.editMode}, ${cell.hasAttribute("data-editing")}`);
-if (Boolean(data.editMode) === Boolean(cell.hasAttribute("data-editing"))) this.#execute(data.command, e);
-else if (key === "escape" && cell.hasAttribute("data-editing")) this.#endEditing("cancel");
-else return true;
-} // if
-
-if (cell === this.currentCell) return;
-
-cell.setAttribute("aria-selected", "false");
-this.announceCell(this.currentCell);
-} // #keydownHandler
-
-#execute (command, e) {
-e.preventDefault();
-e.stopPropagation();
-e.stopImmediatePropagation();
-command();
-} // executeCommand
-
-#notImplemented (name) {this.#ui.statusMessage(`${name}: not implemented.`);}
 } // class Grid
 
 /// Grid helpers
+
+function getRowIndex (cell) {return cell.parentElement.cellIndex;}
+function getColumnIndex (cell) {return cell.cellIndex;}
 
 function getRow (cell) {return [...cell.parentElement.children];}
 
@@ -542,4 +313,3 @@ return {type: "empty", range: new Set([])};
 
 function rowIndex (cell) {return cell.parentElement.rowIndex;}
 function columnIndex (cell) {return cell.cellIndex;}
-

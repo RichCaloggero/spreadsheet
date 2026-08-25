@@ -29,7 +29,7 @@ return `${codes.get(code)}; ${this.detail}`;
 } // class
 
 
-class Spreadsheet {
+export class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
 #dependents = new Map();
@@ -334,7 +334,7 @@ const data = JSON.parse(jsonData);
 
 /// Spreadsheet Functions
 
-functions = new Map([
+var functions = new Map([
 ["sum", (...l) => l.reduce((a,x) => a+x)]
 ]);
 

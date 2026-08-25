@@ -34,7 +34,7 @@ function formatLabel (row, column, maxRowCount, maxColumnCount) {
 if (isValidRowNumber(row) &&isValidColumnNumber(column)) {
 if (column >= maxColumnCount) throw new Error("column labels are limited to single alphabetic characters, i.e. max number of columns is 26.");
 if (row >= maxRowCount) throw new Error(`row count limited to ${maxRowCount}`);
-	return `${columnLabels.charAt(column)}${row+1}`;
+return toLabel(row, column);
 } else {
 throw new Error(`bad coordinates: ${row},${column}; both must be parsable as positive integers.`);
 } // if
@@ -42,3 +42,7 @@ throw new Error(`bad coordinates: ${row},${column}; both must be parsable as pos
 
 function isValidRowNumber (n) {return Number.isInteger(n) && n >= 0;}
 function isValidColumnNumber (n) {return Number.isInteger(n) && n >= 0;}
+
+function toLabel (row, column) {
+	return `${columnLabels.charAt(column)}${row+1}`;
+} // toLabel

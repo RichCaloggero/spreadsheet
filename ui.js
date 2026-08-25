@@ -1,11 +1,19 @@
+import { Spreadsheet } from "./spreadsheet.js";
+import { Grid } from "./grid.js";
+import { Controller, generateKeyboardHelp  } from "./command.js";
+
+
 main(document);
 
 function main (document) {
 const s = new Spreadsheet();
 //s.test2();
-
-const g = new Grid({document, statusMessage, save, load}, s);
+const helpDialog = createHelpDialog (document);
+const g = new Grid(document, helpDialog);
 document.querySelector(".spreadsheet").appendChild(g.dom);
+document.body.appendChild(helpDialog);
+
+const c = new Controller (s, g, helpDialog);
 } // main
 
 function save (data) {
@@ -15,7 +23,7 @@ const jsonText = JSON.stringify(data);
 saveFile("spreadsheet.dat", jsonText);
 } catch (e) {
 //console.log(e);
-statusMessage(e);
+g.statusMessage(e);
 } // try
 } // save
 
@@ -35,7 +43,7 @@ data = JSON.parse(text);
 //console.log("JSON parsed correctly");
 } catch (e) {
 //console.log(e);
-statusMessage(`failed to load data from ${files[0].name}; not valid JSON format`);
+g.statusMessage(`failed to load data from ${files[0].name}; not valid JSON format`);
 return;
 } // try
 
@@ -72,15 +80,26 @@ setTimeout(() => URL.revokeObjectURL(url), 1000);
 
 
 
-function statusMessage (text, remove = false) {
-setTimeout(() => {
-if (document.ariaNotify) {
-document.ariaNotify(text);
-return;
-} // if
 
-const status = document.querySelector(".status");
-status.textContent = text;
-if (remove) setTimeout(() => status.textContent = "", 7000);
-}, 70);
-} // statusMessage
+function createHelpDialog (document) {
+const dialog = document.createElement("dialog");
+    dialog.setAttribute("popover", true);
+        dialog.setAttribute("closedBy", "any");
+dialog.insertAdjacentHTML("beforeEnd", helpDialog(generateHelpText(generateKeyboardHelp())));
+return dialog;
+} // createHelpDialog       
+    
+function helpDialog (helpText) {
+    return `<div class="head">
+<h2>Keyboard Help</h2>
+<button autofocus onclick="parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
+</div><!-- .head -->
+
+<div class="body">
+${helpText}
+</div><!-- .body -->        
+`;
+} // helpDialog
+
+
+
