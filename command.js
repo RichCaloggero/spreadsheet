@@ -61,7 +61,7 @@ moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 let errors = false;
 
 for (const name of names) {
-errors = this.#view.displayCellContents(this.#model.cellContents(name));
+errors |= this.#view.displayCellContents(this.#model.cellContents(name));
 } // for
 
 return errors;
@@ -69,21 +69,32 @@ return errors;
 
 startEditing () {this.#view.startEditing();}
 
-endEditing (cancel) {
-    const {label, input, role} = this.#view.endEditing(cancel);
+endEditing () {
+    const {label, input, role} = this.#view.endEditing();
 if (not(label)) return;
 
-if (this.#autoFillPossible(label)) this.#autofill(label);
-else this.#renderCells(this.#model.setCellContents(label));
+if (this.#autoFillPossible(label)) this.#autofill(label, input, role);
+else this.#renderCells(this.#model.setCellContents(label, input, role));
   } // endEditing
 
-  #autoFillPossible () {
-
+  #autoFillPossible (label) {
+return this.#view.labelToCell(label) && this.#mark;
   } // #autoFillPossible
 
-  #autofill () {
+  #autofill (label, input, role) {
+  const range = this.#getRange();
+if (isNumeric(input)) return this.#fillConstant(range, input, role);
+
+  const type = isSameRow(this.#mark, this.#view.cursor)? 0 : 1; // row or column
+this.#view.statusMessage(`filling formula: range type is ${type}`);
+
   } // #autofill
   
+#fillConstant (range, value, role) {
+for (const label of range) {
+  this.#renderCells(this.#model.setCellContents(label, value, role));
+} // for
+} // #fillConstant
 
 delete () {
 const label = this.#view.cursor;
@@ -155,33 +166,12 @@ controller.displayHelpDialog();
 
 function cancel (c) {return c.cancel();}
 
-function nextCellInRow (c) {return moveBy(c, 0,1);} // nextCellInRow
-function previousCellInRow (c) {return moveBy(c, 0,-1);} // nextCellInRow
-
-function nextCellInColumn (c) {return moveBy(c, 1,0);} // nextCellInRow
-function previousCellInColumn (c) {return moveBy(c, -1,0);} // nextCellInRow
-
-function firstCellInRow (c) {return c.moveToStartOfRow();}
-function lastCellInRow (c) {return c.moveToEndOfRow();}
-
-function firstCellInColumn (c) {return c.moveToStartOfColumn();}
-function lastCellInColumn (c) {return c.moveToEndOfColumn();}
-
-function firstCellInGrid (c) {return c.moveToStartOfGrid();}
-function lastCellInGrid (c) {return c.moveToEndOfGrid();}
 
 
 
-function startEditing (c) {c.startEditing();}
-function endEditing (c) {c.endEditing();}
-function cancelEditing (c) {c.endEditing("cancel");}
 
-function setMark (c) {c.setMark();} 
     
-function deleteCells (c) {c.delete();}
 
-function load (c) {c.load();}
-function save (c) {c.save();}
 
 function autosum (c) {c.autoSum();}
     /*if this.#getRange().size > 0) controller.startEditing(`=sum(${expandRange(#range)})`);
@@ -189,16 +179,10 @@ else statusMessage("Autosum has no selection.");
 } // autosum
 */
 
-function markRowAsColumnHeaders (c) {c.markRowAsColumnHeaders();}
-function markColumnAsRowHeaders (c) {c.markColumnAsRowHeaders ();}
 
 /// helpers
 
 
-function moveBy (c, dRow, dCol) {
-  const [row, col] = parseLabel(c.cursor);
-  return c.moveTo(toLabel(row + dRow, col + dCol));
-} // moveBy
 
 function rowSegment (r, c1, c2) {
   return sequence(c1,c2)

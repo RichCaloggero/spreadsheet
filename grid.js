@@ -163,6 +163,7 @@ cell.querySelector("input").focus();
 const input = cell.querySelector("input");
 const text = input.value.trim();
 cell.innerHTML = "";
+return text;
 } // #getValueFromInput
 
 cancelEditing () {
@@ -184,11 +185,11 @@ cell.removeAttribute("data-old");
 this.#grid.focus();
 this.statusMessage("end editing.");
 
-return true;
+return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role};
 } // endEditing
 
 
-#displayCellContents (data) {
+displayCellContents (data) {
 //console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula} = data;
 const cell = this.labelToCell(name);

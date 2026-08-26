@@ -8,6 +8,10 @@ return typeof(x) === "object"? x instanceof String : typeof(x) === "string";
 
 function isFunction (x) {return typeof(x) === "function" || x instanceof Function;}
 
+function isNumeric (value) {
+    return not(value === "") && not(value === null) && not(Number.isNaN(Number(value))) && typeof(Number(value)) === "number";
+} // isNumeric
+
 // getSymbols excludes function symbol nodes and range nodes
 function getSymbols (node) {
 return node
