@@ -1,4 +1,4 @@
-export class Grid {
+    export class Grid {
 #grid = null;
 #helpDialog = null;
 #maxRowCount = 0;
@@ -85,8 +85,8 @@ lastLabelInGrid (label) {return this.cellToLabel(this.#lastCellInGrid(this.label
 
 #firstCellInRow (cell) {return cell.parentElement.firstElementChild;}
 #lastCellInRow (cell) {return cell.parentElement.lastElementChild;}
-#firstCellInColumn (cell) {return cell.parentElement.parentElement.firstElementChild.cell.cellIndex;}
-#lastCellInColumn (cell) {return cell.parentElement.parentElement.lastElementChild.cell.cellIndex;}
+#firstCellInColumn (cell) {return cell.parentElement.parentElement.firstElementChild.children[cell.cellIndex];}
+#lastCellInColumn (cell) {return cell.parentElement.parentElement.lastElementChild.children[cell.cellIndex];}
 #firstCellInGrid (cell) {return cell.parentElement.parentElement.firstElementChild.firstElementChild;}
 #lastCellInGrid (cell) {return cell.parentElement.parentElement.lastElementChild.lastElementChild;}
 
@@ -122,8 +122,8 @@ this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 
 #setCurrentCell (cell) {
 this.#grid.ariaActiveDescendantElement = cell;
-cell.setAttribute("aria-selected", "true");
-this.#generateDescription(cell);
+cell.setAttribute("aria-selected", "false");
+this.#generateDescription(cell);        
 } // #setCurrentCell
 
 #unselectAllCells () {this.#allCells().forEach(cell => cell.setAttribute("aria-selected", "false"));}
@@ -159,17 +159,26 @@ cell.querySelector("input").value = text;
 cell.querySelector("input").focus();
 } // #startEditing
 
+#getValueFromInput (cell) {
+const input = cell.querySelector("input");
+const text = input.value.trim();
+cell.innerHTML = "";
+} // #getValueFromInput
+
+cancelEditing () {
+    const cell = this.currentCell;
+    this.#getValueFromInput(cell);
+cell.removeAttribute("data-editing");
+this.#announceCell();
+this.#grid.focus();
+} // cancelEditing
+
 endEditing (cancel = false) {
 const cell = this.currentCell;
 const label = this.cellToLabel(cell);
 if (not(cell.hasAttribute("data-editing"))) return false;
 
-const input = cell.querySelector("input");
-const text = input.value.trim();
-cell.innerHTML = "";
-if (Boolean(cancel)) return false;
-
-cell.textContent = text;
+cell.textContent = this.#getValueFromInput(cell);
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-old");
 this.#grid.focus();

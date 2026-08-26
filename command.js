@@ -1,40 +1,4 @@
-const keymap = new Map([
-["f1", {help: "display keyboard help", command: displayHelpDialog}],
-    
-// navigation
-["arrowRight", {help: "move right one cell", command:  nextCellInRow}],
-["arrowLeft", {help: "move one cell left", command: previousCellInRow}],
-["arrowDown", {help: "move one cell down", command: nextCellInColumn}],
-["arrowUp", {help: "move one cell up", command: previousCellInColumn}],
-
-["home", {help: "first cell in row", command: firstCellInRow}],
-["end", {help: "last cell in row", command: lastCellInRow}],
-["shift+home", {help: "first cell in column", command: firstCellInColumn}],
-["shift+end", {help: "last cell in column", command: lastCellInColumn}],
-
-["control+home", {help: "first cell in grid", command: firstCellInGrid}],
-["control+end", {help: "last cell in grid", command: lastCellInGrid}],
-
-// editing
-["f2", {help: "edit current cell", command: startEditing}],
-["enter", {help: "end editing", editMode: true, command: endEditing}],
-["escape", {help: "cancel range definition or remove already defined range", command: cancel}],
-["delete", {help: "delete cell", command: deleteCells}],
-
-// row and column tagging
-["control+alt+shift+c", {help: "all cells in row become column header cells", command: markRowAsColumnHeaders}],
-["control+alt+shift+r", {help: "all cells in column become row header cells", command: markColumnAsRowHeaders}],
-
-// ranges
-["control+space", {help: "begin / end marking range", command: setMark}],
-
-// load / save
-["control+s", {help: "save", command: save}],
-["control+o", {help: "open", command: load}],
-["control+l", {help: "load", command: load}],
-
-["alt+=", {help: "autosum over defined range, if any", command: autosum}],
-]); // keymap
+import { keymap } from "./keymap.js";
 
 export class Controller {
 #mark = null;
@@ -48,8 +12,6 @@ constructor (model, view) {
 this.#renderCells();
 } // constructor
 
-get model () {return this.#model;}
-get view () {return this.#view;}
 get cursor () {return this.#view.cursor;}
 
 setMark () {
@@ -65,7 +27,12 @@ this.#view.statusMessage("mark cleared.");
 } // if
 } // setMark
 
-  moveTo (label) {
+moveBy (dRow, dCol) {
+  const [row, col] = parseLabel(this.#view.cursor);
+  return this.#moveTo(toLabel(row + dRow, col + dCol));
+} // moveBy
+
+  #moveTo (label) {
   if (!this.#view.labelToCell(label)) return false;   // off-grid, stay put
   this.#view.moveTo(label);
   if (this.#mark) {
@@ -73,23 +40,21 @@ this.#view.statusMessage("mark cleared.");
 if (range)     {
   this.#view.markRange(range);
 } else {
-  this.#mark = null;
-  this.#view.clearRange();
-  this.#view.statusMessage("range cleared.");
+  this.#clearMark();;
 } // if
 } // if
   
   return true;
 } // moveTo
 
-moveToStartOfRow () { this.moveTo(this.#view.firstLabelInRow(this.cursor)); }
-moveToEndOfRow () { this.moveTo(this.#view.lastLabelInRow(this.cursor)); }
+moveToStartOfRow () { this.#moveTo(this.#view.firstLabelInRow(this.cursor)); }
+moveToEndOfRow () { this.#moveTo(this.#view.lastLabelInRow(this.cursor)); }
 
-moveToStartOfColumn () { this.moveTo(this.#view.firstLabelInColumn(this.cursor)); }
-moveToEndOfColumn () { this.moveTo(this.#view.lastLabelInColumn(this.cursor)); }
+moveToStartOfColumn () { this.#moveTo(this.#view.firstLabelInColumn(this.cursor)); }
+moveToEndOfColumn () { this.#moveTo(this.#view.lastLabelInColumn(this.cursor)); }
 
-moveToStartOfGrid () { this.moveTo(this.#view.firstLabelInGrid(this.cursor)); }
-moveToEndOfGrid () { this.moveTo(this.#view.lastLabelInGrid(this.cursor)); }
+moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
+moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
 #renderCells (names = this.#model.allCells) {
 //console.log("loadCellsFromModel: ", names);
@@ -130,15 +95,25 @@ range : new Set([label]);
 for (const label of labels) {
 //console.log("deleting: ", label);
 this.#renderCells(this.#model.deleteCell(label));
-this.#mark = null;
 this.#view.cleanupDeletedCell(label);
 } // for
 
+if (this.#mark) this.#clearMark();
 this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
 } // delete
 
-execute (key, data, label) {
-if (key === "Escape" && this.#view.isEditing) return;
+execute (key, data, e) {
+if (key === "escape" && this.#view.isEditing) {
+  console.log("escape: will cancel editing...");
+this.#view.cancelEditing();
+  return;
+} // if
+
+
+e.preventDefault();
+e.stopPropagation();
+e.stopImmediatePropagation();
+
 if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) data.command(this);
 } // executeCommand
 
@@ -146,20 +121,24 @@ if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) data.command(this
   if (not(l1)) return null;
   const [mr, mc] = parseLabel(l1), [cr, cc] = parseLabel(l2);
   if (mr === cr) return new Set(rowSegment(mr, mc, cc));
-if (mc === cc) return new Set (columnSegment(mc, mr, cr));
+if (mc === cc) return new Set (columnSegment(mr, mc, cr));
   return null;              // off-axis
 } // #getRange
 
 markRowAsColumnHeaders () {this.#view.setColumnHeaders();}
 markColumnAsRowHeaders () {this.#view.setRowHeaders();}
 
+#clearMark () {
+  this.#mark = null;
+  this.#view.clearRange();
+    this.#view.statusMessage("range cleared.");
+} // #clearMark
+
 cancel () {
   if (this.#view.isEditing) {
     this.#view.endEditing("cancel");
   } else if (this.#mark) {
-    this.#view.clearRange();
-    this.#mark = null;
-    this.#view.statusMessage ("range cleared.");
+    this.#clearMark();
   } // if
 } // cancel
 
@@ -196,7 +175,6 @@ function lastCellInGrid (c) {return c.moveToEndOfGrid();}
 function startEditing (c) {c.startEditing();}
 function endEditing (c) {c.endEditing();}
 function cancelEditing (c) {c.endEditing("cancel");}
-function cancelSelection (c) {c.cancelSelection();}
 
 function setMark (c) {c.setMark();} 
     
@@ -251,11 +229,8 @@ const label =  controller.cursor;
 //console.log("keydown: ", key, label);
 if (keymap.has(key) ) {
 const data = keymap.get(key);
-e.preventDefault();
-e.stopPropagation();
-e.stopImmediatePropagation();
 
-controller.execute(key, data, label);
+return controller.execute(key, data, e);
 } // if
 } // #keydownHandler
 
