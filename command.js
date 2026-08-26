@@ -70,7 +70,10 @@ return errors;
 startEditing () {this.#view.startEditing();}
 
 endEditing () {
-    const {label, input, role} = this.#view.endEditing();
+    const result = this.#view.endEditing();
+    if (not(result)) return;
+    const {label, input, role} = result;
+
 if (not(label)) return;
 
 if (this.#autoFillPossible(label)) this.#autofill(label, input, role);
@@ -84,10 +87,8 @@ return this.#view.labelToCell(label) && this.#mark;
   #autofill (label, input, role) {
   const range = this.#getRange();
 if (isNumeric(input)) return this.#fillConstant(range, input, role);
-
-  const type = isSameRow(this.#mark, this.#view.cursor)? 0 : 1; // row or column
-this.#view.statusMessage(`filling formula: range type is ${type}`);
-
+else this.#fillFormula(label, range, input, role);
+  
   } // #autofill
   
 #fillConstant (range, value, role) {
@@ -96,6 +97,57 @@ for (const label of range) {
 } // for
 } // #fillConstant
 
+#fillFormula (label, range, formula, role) {
+//console.log("fillFormula: ", label, range, formula, role);
+
+const e = math.parse(formula.slice(1));
+const symbols = getSymbols(e);
+//console.log("- symbols: ", symbols);
+
+const targetType = rangeType(this.#mark, this.#view.cursor);
+const targetTypeString = ["row", "column"][targetType];
+//console.log("- targetType: ", `${targetTypeString} (${targetType})`);
+
+const target = new Set();
+symbols.map(label => parseLabel(label))
+.forEach(c => target.add(c[targetType]));
+//console.log("- target: ", target);
+
+if (target.size > 1) {
+this.#view.statusMessage(`all references must have same ${targetTypeString}`);
+return;
+} // if
+ 
+if (target.has(parseLabel(label)[targetType])) {
+this.#view.statusMessage(`all symbols must reference a different ${targetTypeString} than current`);
+return;
+} // if
+
+const targetIndex  = [...target.values()][0];
+//console.log("- targetIndex: ", targetIndex);
+
+for (const label of range) {
+const c = parseLabel(label);
+
+const newSymbols = new Map(
+symbols.map(s => {
+const c0 = targetType === 0?
+[targetIndex, c[1]]
+: [c[0], targetIndex];
+return [s, formatLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
+}) // map
+) // newSymbols
+//console.log("- cell coordinates: ", c, " newSymbols: ", newSymbols);
+
+const formula = replaceSymbols(e, newSymbols).toString();
+//console.log("- formula: ", formula);
+
+this.#renderCells(this.#model.setCellContents(label, `=${formula}`, role));
+} // for
+} // #fillFormula
+
+
+  
 delete () {
 const label = this.#view.cursor;
 const range = this.#getRange();
@@ -118,14 +170,18 @@ if (key === "escape" && this.#view.isEditing) {
   console.log("escape: will cancel editing...");
 this.#view.cancelEditing();
   return;
-} // if
+} else if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) {
+  data.command(this);
+} else {
+  return true;
+  } // if
 
 
-e.preventDefault();
+/*e.preventDefault();
 e.stopPropagation();
 e.stopImmediatePropagation();
+*/
 
-if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) data.command(this);
 } // executeCommand
 
 #getRange (l1 = this.#mark, l2 = this.#view.cursor) {
@@ -213,7 +269,6 @@ const label =  controller.cursor;
 //console.log("keydown: ", key, label);
 if (keymap.has(key) ) {
 const data = keymap.get(key);
-
 return controller.execute(key, data, e);
 } // if
 } // #keydownHandler
@@ -233,4 +288,11 @@ return `<tr>
 `;
 } // generateKeyboardHelp
 
+
+function rangeType (l1, l2) {
+  const [r1, c1] = parseLabel(l1), [r2, c2] = parseLabel(l2);
+  return r1 === r2? 0 : 
+  c1 === c2? 1
+  : -1;
+} // rangeType
 
