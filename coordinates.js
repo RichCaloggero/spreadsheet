@@ -1,10 +1,12 @@
+import { not } from "./utilities.js";
+
 /* coordinate.js
 Labels are cell coordinates in excel notation (a1 is column 0, row 0).
 */
 
 const columnLabels = "abcdefghijklmnopqrstuvwxyz";
 
-function parseLabel (label, maxRowCount, maxColumnCount) {
+export function parseLabel (label, maxRowCount, maxColumnCount) {
 if (not(label) || not(label instanceof String || typeof(label) === "string") || label.length < 2)
 	return {error: true, message: `label must be a string containing at least two characters: ${label}`};
 
@@ -30,7 +32,7 @@ return {error: true, message: `row index cannot be greater than ${maxRowCount}: 
 return [row, column];
 } // parseLabel
 
-function formatLabel (row, column, maxRowCount, maxColumnCount) {
+export function formatLabel (row, column, maxRowCount, maxColumnCount) {
 if (isValidRowNumber(row) &&isValidColumnNumber(column)) {
 if (column >= maxColumnCount) throw new Error("column labels are limited to single alphabetic characters, i.e. max number of columns is 26.");
 if (row >= maxRowCount) throw new Error(`row count limited to ${maxRowCount}`);
@@ -40,9 +42,12 @@ throw new Error(`bad coordinates: ${row},${column}; both must be parsable as pos
 } // if
 } // formatLabel
 
-function isValidRowNumber (n) {return Number.isInteger(n) && n >= 0;}
-function isValidColumnNumber (n) {return Number.isInteger(n) && n >= 0;}
 
-function toLabel (row, column) {
+export function toLabel (row, column) {
 	return `${columnLabels.charAt(column)}${row+1}`;
 } // toLabel
+
+/// helpers
+
+function isValidRowNumber (n) {return Number.isInteger(n) && n >= 0;}
+function isValidColumnNumber (n) {return Number.isInteger(n) && n >= 0;}

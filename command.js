@@ -1,11 +1,15 @@
 import { keymap } from "./keymap.js";
+import { Key } from "./key.js";
+import { parseLabel, toLabel } from "./coordinates.js";
+
+import  { }  from "./utilities.js";
 
 export class Controller {
 #mark = null;
 #view = null;
 #model = null;
 
-constructor (model, view) {
+constructor (model, view, helpDialog) {
     this.#model = model;
     this.#view = view;
     view.bind("keydown", e => keydownHandler(e, this));

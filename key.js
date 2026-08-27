@@ -1,4 +1,4 @@
-class Key {
+export class Key {
 #separator = "+";
 #keyNameMap = new Map([
 ["ctrlKey", "control"],

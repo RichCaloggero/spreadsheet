@@ -1,4 +1,7 @@
-    export class Grid {
+import { not, } from "./utilities.js";
+import { toLabel, parseLabel, formatLabel } from "./coordinates.js";
+
+export class Grid {
 #grid = null;
 #helpDialog = null;
 #maxRowCount = 0;

@@ -1,6 +1,7 @@
 import { Spreadsheet } from "./spreadsheet.js";
 import { Grid } from "./grid.js";
 import { Controller, generateKeyboardHelp  } from "./command.js";
+import { generateHelpText } from "./help.js";
 
 
 main(document);

@@ -1,4 +1,4 @@
-function generateHelpText (keyboardCommands) {
+export function generateHelpText (keyboardCommands) {
 return `<h3>Introduction</h3>
 <p>I've often wondered how spreadsheets worked, so I decided to work with Claude AI to build one.
 One of my key motovations was to have a way to experiment on a reasonably complex interaction model with various approaches to screen reader accessibility.
