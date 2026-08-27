@@ -15,7 +15,7 @@ export function isNumeric (value) {
 // getSymbols excludes function symbol nodes and range nodes
 export function getSymbols (node) {
 return node
-.filter((node, path, parent) => node.type === "SymbolNode" && path !== "fn" && parent.type !== "RangeNode")
+.filter((node, path, parent) => node.type === "SymbolNode" && path !== "fn" && parent?.type !== "RangeNode")
 .map(node => node.name.trim());
 } // getSymbols
 

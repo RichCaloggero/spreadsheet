@@ -199,8 +199,9 @@ markColumnAsRowHeaders () {this.#view.setRowHeaders();}
 } // #clearMark
 
 cancelEditing () {
-  this.#view.endEditing("cancel");
-  } // cancelEditing
+  this.#view.cancelEditing();
+  this.#renderCells([this.#view.cursor]);
+    } // cancelEditing
 
   cancelRange () {
   if (this.#mark) {
