@@ -1,4 +1,4 @@
-import { not, } from "./utilities.js";
+import { not, isFunction } from "./utilities.js";
 import { toLabel, parseLabel, formatLabel } from "./coordinates.js";
 
 export class Grid {
@@ -24,7 +24,7 @@ for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
 cell.dataset.label = toLabel(i, j);
 cell.role = "gridcell";
-cell.innerHTML = "&nbsp";
+//cell.innerHTML = "&nbsp;";
 cell.tabIndex = -1;
 row.appendChild(cell);
 } // for column
@@ -109,7 +109,7 @@ cell.removeAttribute("aria-invalid");
 cell.role = "gridcell";
 cell.ariaDescription = "";
 
-cell.innerHTML = "&nbsp;";
+//cell.innerHTML = "&nbsp;";
 } // forEach cell
 } // clear
 

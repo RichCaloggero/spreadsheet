@@ -1,22 +1,27 @@
-import { keymap } from "./keymap.js";
+import { keymap, lookup } from "./keymap.js";
 import { Key } from "./key.js";
 import { parseLabel, toLabel } from "./coordinates.js";
-
-import  { }  from "./utilities.js";
+import { not, isNumeric, getSymbols, replaceSymbols } from "./utilities.js";
 
 export class Controller {
 #mark = null;
 #view = null;
 #model = null;
+#load = null;
+#save = null;
 
-constructor (model, view, helpDialog) {
+constructor (model, view, load, save, helpDialog) {
     this.#model = model;
     this.#view = view;
     view.bind("keydown", e => keydownHandler(e, this));
-this.#renderCells();
+this.#load = load;
+this.#save = save;
+
+    this.#renderCells();
 } // constructor
 
 get cursor () {return this.#view.cursor;}
+get mode () { return this.#view.isEditing ? "edit" : "nav"; }
 
 setMark () {
 this.#mark = (this.#mark && this.#mark === this.cursor)?
@@ -138,7 +143,7 @@ symbols.map(s => {
 const c0 = targetType === 0?
 [targetIndex, c[1]]
 : [c[0], targetIndex];
-return [s, formatLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
+return [s, toLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
 }) // map
 ) // newSymbols
 //console.log("- cell coordinates: ", c, " newSymbols: ", newSymbols);
@@ -169,24 +174,12 @@ if (this.#mark) this.#clearMark();
 this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
 } // delete
 
-execute (key, data, e) {
-if (key === "escape" && this.#view.isEditing) {
-  console.log("escape: will cancel editing...");
-this.#view.cancelEditing();
-  return;
-} else if (Boolean(data?.editMode) === Boolean(this.#view.isEditing)) {
-  data.command(this);
-} else {
-  return true;
-  } // if
-
-
-/*e.preventDefault();
-e.stopPropagation();
-e.stopImmediatePropagation();
-*/
-
-} // executeCommand
+execute (key) {
+  const entry = lookup(this.mode, key);
+  if (!entry) return false;      // unhandled: browser default runs
+  entry.command(this);
+  return true;                   // handled: caller preventDefaults
+} // execute
 
 #getRange (l1 = this.#mark, l2 = this.#view.cursor) {
   if (not(l1)) return null;
@@ -205,13 +198,15 @@ markColumnAsRowHeaders () {this.#view.setRowHeaders();}
     this.#view.statusMessage("range cleared.");
 } // #clearMark
 
-cancel () {
-  if (this.#view.isEditing) {
-    this.#view.endEditing("cancel");
-  } else if (this.#mark) {
+cancelEditing () {
+  this.#view.endEditing("cancel");
+  } // cancelEditing
+
+  cancelRange () {
+  if (this.#mark) {
     this.#clearMark();
   } // if
-} // cancel
+} // cancelRange
 
 displayHelpDialog () {this.#view.displayHelpDialog();}
 
@@ -271,11 +266,11 @@ if (key.length === 0) return false;
 const label =  controller.cursor;
 
 //console.log("keydown: ", key, label);
-if (keymap.has(key) ) {
-const data = keymap.get(key);
-return controller.execute(key, data, e);
+if (controller.execute(key)) {
+  e.preventDefault();
+  return;
 } // if
-} // #keydownHandler
+} // keydownHandler
 
 
 

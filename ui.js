@@ -14,7 +14,7 @@ const g = new Grid(document, helpDialog);
 document.querySelector(".spreadsheet").appendChild(g.dom);
 document.body.appendChild(helpDialog);
 
-const c = new Controller (s, g, helpDialog);
+const c = new Controller (s, g, load, save, helpDialog);
 } // main
 
 function save (data) {
