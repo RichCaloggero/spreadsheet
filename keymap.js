@@ -1,4 +1,10 @@
-export const keymap = new Map([
+const modeTitles = {
+  "nav": "Navigation Commands",
+  "edit": "Editing Commands",
+  "any": "Commands available in either mode"
+};
+
+  export const keymap = new Map([
 ["nav", new Map([
     ["arrowRight", {help: "move right one cell", command:  c => c.moveBy(0,1)}],
 ["arrowLeft", {help: "move one cell left", command: c => c.moveBy(0,-1)}],
@@ -39,3 +45,25 @@ export const keymap = new Map([
 export function lookup (mode, key) {
 return keymap.get(mode)?.get      (key) ?? keymap.get("any")?.get(key);
 } // lookup
+
+export function generateKeyboardHelp () {
+  return [...keymap.keys()].map(mode => {
+    return `<h4>${modeTitles[mode]}</h4>
+    ${generateTable(keymap.get(mode))}
+`;
+}).join("\n");
+  
+function generateTable (keymap) {
+    return `<table>
+${[...keymap.entries()].map(entry => {
+const [key, data] = entry;
+return `<tr>
+<th>${data.help}</th>
+<td>${key}</td>
+</tr>`;
+}).join("\n")}
+</table>
+`;
+} // generateTable
+} // generateKeyboardHelp
+

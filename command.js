@@ -17,11 +17,13 @@ constructor (model, view, load, save, helpDialog) {
 this.#load = load;
 this.#save = save;
 
-    this.#renderCells();
+    this.renderCells();
 } // constructor
 
 get cursor () {return this.#view.cursor;}
 get mode () { return this.#view.isEditing ? "edit" : "nav"; }
+get load () {return this.#load;}
+get save () {return this.#save;}
 
 setMark () {
 this.#mark = (this.#mark && this.#mark === this.cursor)?
@@ -65,7 +67,7 @@ moveToEndOfColumn () { this.#moveTo(this.#view.lastLabelInColumn(this.cursor)); 
 moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
 moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
-#renderCells (names = this.#model.allCells) {
+renderCells (names = this.#model.allCells) {
 //console.log("loadCellsFromModel: ", names);
 let errors = false;
 
@@ -74,7 +76,7 @@ errors |= this.#view.displayCellContents(this.#model.cellContents(name));
 } // for
 
 return errors;
-} // #renderCells
+} // renderCells
 
 startEditing () {this.#view.startEditing();}
 
@@ -86,7 +88,7 @@ endEditing () {
 if (not(label)) return;
 
 if (this.#autoFillPossible(label)) this.#autofill(label, input, role);
-else this.#renderCells(this.#model.setCellContents(label, input, role));
+else this.renderCells(this.#model.setCellContents(label, input, role));
   } // endEditing
 
   #autoFillPossible (label) {
@@ -102,7 +104,7 @@ else this.#fillFormula(label, range, input, role);
   
 #fillConstant (range, value, role) {
 for (const label of range) {
-  this.#renderCells(this.#model.setCellContents(label, value, role));
+  this.renderCells(this.#model.setCellContents(label, value, role));
 } // for
 } // #fillConstant
 
@@ -151,7 +153,7 @@ return [s, toLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
 const formula = replaceSymbols(e, newSymbols).toString();
 //console.log("- formula: ", formula);
 
-this.#renderCells(this.#model.setCellContents(label, `=${formula}`, role));
+this.renderCells(this.#model.setCellContents(label, `=${formula}`, role));
 } // for
 } // #fillFormula
 
@@ -166,7 +168,7 @@ range : new Set([label]);
 
 for (const label of labels) {
 //console.log("deleting: ", label);
-this.#renderCells(this.#model.deleteCell(label));
+this.renderCells(this.#model.deleteCell(label));
 this.#view.cleanupDeletedCell(label);
 } // for
 
@@ -183,7 +185,7 @@ execute (key) {
 
 #getRange (l1 = this.#mark, l2 = this.#view.cursor) {
   if (not(l1)) return null;
-  const [mr, mc] = parseLabel(l1), [cr, cc] = parseLabel(l2);
+const [mr, mc] = parseLabel(l1), [cr, cc] = parseLabel(l2);
   if (mr === cr) return new Set(rowSegment(mr, mc, cc));
 if (mc === cc) return new Set (columnSegment(mr, mc, cr));
   return null;              // off-axis
@@ -200,7 +202,7 @@ markColumnAsRowHeaders () {this.#view.setRowHeaders();}
 
 cancelEditing () {
   this.#view.cancelEditing();
-  this.#renderCells([this.#view.cursor]);
+  this.renderCells([this.#view.cursor]);
     } // cancelEditing
 
   cancelRange () {
@@ -272,22 +274,7 @@ if (controller.execute(key)) {
   return;
 } // if
 } // keydownHandler
-
-
-
-        export function generateKeyboardHelp () {
-    return `<table>
-${[...keymap.entries()].map(entry => {
-const [key, data] = entry;
-return `<tr>
-<th>${data.help}</th>
-<td>${key}</td>
-</tr>`;
-}).join("\n")}
-</table>
-`;
-} // generateKeyboardHelp
-
+     
 
 function rangeType (l1, l2) {
   const [r1, c1] = parseLabel(l1), [r2, c2] = parseLabel(l2);

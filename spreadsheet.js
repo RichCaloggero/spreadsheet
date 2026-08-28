@@ -165,7 +165,8 @@ this.#dependentsOf(symbolName).add(cell.name);
 } else {
 const n = Number(input);
 cell.value = (input !== "" && not(Number.isNaN(n))) ? n : input;
-	} // if
+	cell.code = null;
+} // if
 
 return cell;
 } // #setInput
