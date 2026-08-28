@@ -42,10 +42,12 @@ this.#unselectAllCells();
 
 
 setTimeout(() => {
-grid.focus();
+this.focus();
 this.#announceCell(this.currentCell);
 }, 50);
 } // constructor
+
+focus () {this.#grid.focus();}
 
 get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
@@ -62,9 +64,6 @@ get isEditing () {return this.getIsEditing(this.cursor);}
 getValue (label) {return this.labelToCell(label).textContent;}
 getFormula (label) {return this.labelToCell(label).dataset.formula;}
 getIsEditing (label) {return this.labelToCell(label).hasAttribute("data-editing");}
-setRowHeader (label) {this.labelToCell(label).role = "rowheader";}
-setColumnHeader (label) {this.labelToCell(label).role = "columnheader";}
-setGridCell (label) {this.labelToCell(label).role = "gridcell"}
 
 moveTo(label) {
     const oldCell = this.currentCell;
@@ -174,7 +173,7 @@ cancelEditing () {
     this.#getValueFromInput(cell);
 cell.removeAttribute("data-editing");
 this.#announceCell();
-this.#grid.focus();
+this.focus();
 } // cancelEditing
 
 endEditing (cancel = false) {
@@ -185,7 +184,7 @@ if (not(cell.hasAttribute("data-editing"))) return false;
 cell.textContent = this.#getValueFromInput(cell);
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-old");
-this.#grid.focus();
+this.focus();
 this.statusMessage("end editing.");
 
 return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role};
@@ -246,8 +245,15 @@ return this.#grid.querySelector(`td[data-label="${label}"]`);
 } // labelToCell
 
 
-setColumnHeaders () {markRowAsColumnHeaders(this.currentCell);}
-setRowHeaders () {markColumnAsRowHeaders(this.currentCell);}
+setColumnHeaders () {
+    this.#markRowAsColumnHeaders(this.currentCell);
+this.setGridCell("a1"); // always neither row or column header
+} // setColumnHeaders
+
+setRowHeaders () {
+    this.#markColumnAsRowHeaders(this.currentCell);
+this.setGridCell("a1"); // always neither row or column header
+} // setRowHeaders 
 
 
 #markColumnAsRowHeaders (cell) {
@@ -261,6 +267,10 @@ const role = cell.role === "gridcell"? "columnheader" : "gridcell";
 
 getRow(cell).forEach(cell => cell.role = role);
 } // #markRowAsColumnHeaders
+
+setRowHeader (label) {this.labelToCell(label).role = "rowheader";}
+setColumnHeader (label) {this.labelToCell(label).role = "columnheader";}
+setGridCell (label) {this.labelToCell(label).role = "gridcell"}
 
 markRange (labels) {
 for (const label of labels) {
