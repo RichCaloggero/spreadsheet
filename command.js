@@ -7,23 +7,21 @@ export class Controller {
 #mark = null;
 #view = null;
 #model = null;
-#load = null;
-#save = null;
+#readFile = null;
+#writeFile = null;
 
-constructor (model, view, load, save, helpDialog) {
+constructor (model, view, readFile, writeFile, helpDialog) {
     this.#model = model;
     this.#view = view;
     view.bind("keydown", e => keydownHandler(e, this));
-this.#load = load;
-this.#save = save;
+this.#readFile = readFile;
+this.#writeFile = writeFile;
 
-    this.renderCells();
+    this.#renderCells();
 } // constructor
 
 get cursor () {return this.#view.cursor;}
 get mode () { return this.#view.isEditing ? "edit" : "nav"; }
-get load () {return this.#load;}
-get save () {return this.#save;}
 
 setMark () {
 this.#mark = (this.#mark && this.#mark === this.cursor)?
@@ -37,6 +35,38 @@ this.#view.clearMark();
 this.#view.statusMessage("mark cleared.");
 } // if
 } // setMark
+
+load () {
+  this.#readFile(text => {
+    let data;
+    try {
+      data = JSON.parse(text);
+      this.#view.clear();
+      this.#clearMark();
+      this.#model.load(data);
+    } catch (e) {
+      return this.#view.statusMessage("could not load: not a valid spreadsheet file.");
+    } // try
+
+    this.#renderCells();
+    this.#view.focus();
+  });
+} // load
+
+save () {
+const data = this.#model.getData();
+
+try {
+const text = JSON.stringify(data);
+//console.log("save: ", text);
+this.#writeFile("spreadsheet.dat", text);
+
+} catch (e) {
+//console.log(e);
+view.statusMessage(e);
+} // try
+
+} // save
 
 moveBy (dRow, dCol) {
   const [row, col] = parseLabel(this.#view.cursor);
@@ -67,7 +97,7 @@ moveToEndOfColumn () { this.#moveTo(this.#view.lastLabelInColumn(this.cursor)); 
 moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
 moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
-renderCells (names = this.#model.allCells) {
+#renderCells (names = this.#model.allCells) {
 //console.log("loadCellsFromModel: ", names);
 let errors = false;
 
@@ -88,7 +118,7 @@ endEditing () {
 if (not(label)) return;
 
 if (this.#autoFillPossible(label)) this.#autofill(label, input, role);
-else this.renderCells(this.#model.setCellContents(label, input, role));
+else this.#renderCells(this.#model.setCellContents(label, input, role));
   } // endEditing
 
   #autoFillPossible (label) {
@@ -104,7 +134,7 @@ else this.#fillFormula(label, range, input, role);
   
 #fillConstant (range, value, role) {
 for (const label of range) {
-  this.renderCells(this.#model.setCellContents(label, value, role));
+  this.#renderCells(this.#model.setCellContents(label, value, role));
 } // for
 } // #fillConstant
 
@@ -153,7 +183,7 @@ return [s, toLabel(c0[0], c0[1], this.maxRowCount, this.maxColumnCount)];
 const formula = replaceSymbols(e, newSymbols).toString();
 //console.log("- formula: ", formula);
 
-this.renderCells(this.#model.setCellContents(label, `=${formula}`, role));
+this.#renderCells(this.#model.setCellContents(label, `=${formula}`, role));
 } // for
 } // #fillFormula
 
@@ -168,7 +198,7 @@ range : new Set([label]);
 
 for (const label of labels) {
 //console.log("deleting: ", label);
-this.renderCells(this.#model.deleteCell(label));
+this.#renderCells(this.#model.deleteCell(label));
 this.#view.cleanupDeletedCell(label);
 } // for
 
@@ -202,7 +232,7 @@ markColumnAsRowHeaders () {this.#view.setRowHeaders();}
 
 cancelEditing () {
   this.#view.cancelEditing();
-  this.renderCells([this.#view.cursor]);
+  this.#renderCells([this.#view.cursor]);
     } // cancelEditing
 
   cancelRange () {

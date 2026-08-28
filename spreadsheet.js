@@ -79,12 +79,12 @@ for (const data of entries) {
 this.#recalculate([...this.#cells.keys()]);
 } // load
 
-save () {
+getData () {
 const data = [];
 for (const cell of this.#cells.values()) data.push(this.cellContents(cell.name));
 
 return data;
-} // save
+} // getData
 
 clear () {
 this.#cells.clear();
