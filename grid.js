@@ -1,6 +1,8 @@
 import { not, isFunction } from "./utilities.js";
 import { toLabel, parseLabel, formatLabel } from "./coordinates.js";
 
+const requireGridcellRole = false;
+
 export class Grid {
 #grid = null;
 #helpDialog = null;
@@ -23,9 +25,9 @@ const row = document.createElement("tr");
 for (let j=0; j<nColumns; j++) {
 const cell = document.createElement("td");
 cell.dataset.label = toLabel(i, j);
-cell.role = "gridcell";
+if (requireGridcellRole) cell.role = "gridcell";
 //cell.innerHTML = "&nbsp;";
-cell.tabIndex = -1;
+//cell.tabIndex = -1;
 row.appendChild(cell);
 } // for column
 
@@ -36,10 +38,6 @@ grid.appendChild(row);
 grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
-
-
-this.#unselectAllCells();
-
 
 setTimeout(() => {
 this.focus();
@@ -105,7 +103,7 @@ cell.removeAttribute("data-formula");
 cell.removeAttribute("data-in-range");
 cell.removeAttribute("data-mark");
 cell.removeAttribute("aria-invalid");
-cell.role = "gridcell";
+if (requireGridcellRole) cell.role = "gridcell";
 cell.ariaDescription = "";
 
 //cell.innerHTML = "&nbsp;";
@@ -124,11 +122,15 @@ this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 
 #setCurrentCell (cell) {
 this.#grid.ariaActiveDescendantElement = cell;
-cell.setAttribute("aria-selected", "false");
 this.#generateDescription(cell);        
 } // #setCurrentCell
 
-#unselectAllCells () {this.#allCells().forEach(cell => cell.setAttribute("aria-selected", "false"));}
+#unselectAllCells () {
+    for (const cell of this.findCells("td:not([data-in-range)])")) {
+        if (cell.hasAttribute("data-in-range")) cell .setAttribute("aria-selected", "false");
+        else cell .removeAttribute("aria-selected");
+} // for
+} // #unselectAllCells
 
 #allCells () {return [...this.#grid.querySelectorAll("td")];}
 
@@ -243,33 +245,38 @@ labelToCell (label) {
 return this.#grid.querySelector(`td[data-label="${label}"]`);
 } // labelToCell
 
-
-setColumnHeaders () {
-    this.#markRowAsColumnHeaders(this.currentCell);
-this.setGridCell("a1"); // always neither row or column header
-} // setColumnHeaders
-
-setRowHeaders () {
-    this.#markColumnAsRowHeaders(this.currentCell);
-this.setGridCell("a1"); // always neither row or column header
-} // setRowHeaders 
+#isFirstCell (cell) {   return cell === this.#grid.querySelector("td");}
 
 
-#markColumnAsRowHeaders (cell) {
-const role = cell.role === "gridcell"? "rowheader" : "gridcell";
+markColumnAsRowHeaders (cell = this.currentCell) {
+if (this.#isFirstCell(cell))    cell = cell.parentElement.parentElement.children[1].firstElementChild;
+let role = cell.role;
+if (requireGridcellRole) {
+    role = role === "gridcell"? "rowheader" : "gridcell";
+} else {
+    role = role === "rowheader"? "" : "rowheader";
+} // if
 
 getColumn(cell).forEach(cell => cell.role = role);
+this.setGridCell("a1"); // always neither row or column header
 } // #markColumnAsRowHeaders
 
-#markRowAsColumnHeaders (cell) {
-const role = cell.role === "gridcell"? "columnheader" : "gridcell";
+markRowAsColumnHeaders (cell = this.currentCell) {
+if (this.#isFirstCell(cell)) cell = cell.nextElementSibling;
+let role = cell.role;
+if (requireGridcellRole) {
+    role = role === "gridcell"? "columnheader" : "gridcell";
+} else {
+role = role === "columnheader"? "" : "columnheader";
+} // if
 
 getRow(cell).forEach(cell => cell.role = role);
+this.setGridCell("a1"); // always neither row or column header
 } // #markRowAsColumnHeaders
 
 setRowHeader (label) {this.labelToCell(label).role = "rowheader";}
 setColumnHeader (label) {this.labelToCell(label).role = "columnheader";}
-setGridCell (label) {this.labelToCell(label).role = "gridcell"}
+setGridCell (label) {this.labelToCell(label).role = requireGridcellRole? "gridcell" : ""}
 
 markRange (labels) {
 for (const label of labels) {

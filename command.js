@@ -221,8 +221,8 @@ if (mc === cc) return new Set (columnSegment(mr, mc, cr));
   return null;              // off-axis
 } // #getRange
 
-markRowAsColumnHeaders () {this.#view.setColumnHeaders();}
-markColumnAsRowHeaders () {this.#view.setRowHeaders();}
+setColumnHeaders () {this.#view.markRowAsColumnHeaders();}
+setRowHeaders () {this.#view.markColumnAsRowHeaders();}
 
 #clearRange () {
   this.#mark = null;
