@@ -1,28 +1,54 @@
 /* spreadsheet.css
    Visual styling for the accessible spreadsheet demo.
 
-   Every rule below is commented with what it *looks* like, since the
-   point of the file is to describe an appearance you can't inspect
-   directly. Nothing here changes behaviour or the accessibility tree:
-   no generated content (::before / ::after with text) is used anywhere,
-   because Firefox exposes generated content to NVDA and it would end up
-   inside cell announcements.
+   Every rule is commented with what it *looks* like, since the point of
+   the file is to describe an appearance you can't inspect directly.
+   Nothing here changes behaviour or the accessibility tree: no generated
+   content (::before / ::after with text) is used anywhere, because
+   Firefox exposes generated content to NVDA and it would end up inside
+   cell announcements.
 
-   Cells are targeted by ARIA role, so styling follows semantics:
-     [role="gridcell"]      ordinary data cell
-     [role="columnheader"]  cell in a row you tagged with ctrl+alt+shift+c
-     [role="rowheader"]     cell in a column you tagged with ctrl+alt+shift+r
-     [aria-invalid="true"]  cell holding an error
-     [data-formula]         cell whose input was a formula
-     [aria-selected="true"] the cell the cursor is on
-     [data-editing]         cell currently being edited
+   FOCUS MODEL. The table holds DOM focus and the cursor is tracked with
+   aria-activedescendant. Cells carry no explicit gridcell role and no
+   aria-selected, because in Firefox either one causes NVDA to announce
+   selection state on every cell. The cursor is therefore marked with a
+   plain data attribute, which is invisible to the accessibility tree and
+   exists purely so CSS has something to target. Announcements come from
+   the status region instead.
+
+   STRUCTURE. The file is ordered as a cascade, weakest first. Every
+   selector below has the same specificity class, so later rules win over
+   earlier ones purely by source order. Moving a section changes the
+   result. The order is:
+
+     base cell  ->  headers  ->  formula  ->  error  ->  range  ->  cursor
+
+   Rationale: a header is a cell, an error overrides a header's grey
+   fill, a range selection overrides that, and the cursor sits on top of
+   everything because it's the one thing that must always be findable.
+
+   HOOKS. All of the state hooks are data attributes, set by the render
+   path, so they read consistently and none of them touch ARIA:
+
+     table[role="grid"] td   any cell
+     [role="columnheader"]   row tagged with ctrl+alt+shift+c
+     [role="rowheader"]      column tagged with ctrl+alt+shift+r
+     [aria-invalid="true"]   cell holding an error
+     [data-formula]          cell whose input was a formula
+     [data-in-range]         cell belonging to the current range
+     [data-mark]             the anchor end of an in-progress range
+     [data-cursor]         the cell holding the cursor
+     [data-editing]          cell currently being edited
+
+   All grid rules are scoped under table[role="grid"] so they can't leak
+   into the help dialog's table, which is an ordinary table.
 */
 
 /* ------------------------------------------------------------------
    1. Design tokens
-   Colours are muted greys and blues: the familiar "office spreadsheet"
-   palette rather than anything decorative. Changing a value here
-   changes it everywhere.
+   Muted greys and blues: the familiar "office spreadsheet" palette
+   rather than anything decorative. Changing a value here changes it
+   everywhere, including dark mode further down.
    ------------------------------------------------------------------ */
 
 :root {
@@ -45,8 +71,8 @@
 
 /* ------------------------------------------------------------------
    2. Page frame
-   The document sits on a light grey background so the white sheet
-   reads as a separate surface floating on top of it.
+   The document sits on a light grey background so the white sheet reads
+   as a separate surface floating on top of it.
    ------------------------------------------------------------------ */
 
 body {
@@ -56,9 +82,11 @@ body {
   font: normal 0.95rem/1.3 system-ui, "Segoe UI", Arial, sans-serif;
 }
 
-/* The container div (role="application") becomes the scrolling window
-   onto the sheet. Without this the 100x26 table would stretch the page
-   itself and the sticky headers below would have nothing to stick to. */
+/* The container div (role="application") is the scrolling window onto
+   the sheet. Without this the 100x26 table would stretch the page
+   itself, the sticky headers in section 5 would have nothing to stick
+   to, and scrollIntoView would scroll the whole document instead of
+   just the sheet. */
 .spreadsheet {
   overflow: auto;
   max-height: calc(100vh - 3.5rem);   /* leaves room for the status bar */
@@ -67,10 +95,11 @@ body {
 }
 
 /* ------------------------------------------------------------------
-   3. The grid itself
-   border-spacing: 0 with border-collapse: separate (rather than
-   collapse) is deliberate: collapsed borders and position: sticky
-   don't cooperate, and section 5 needs sticky headers.
+   3. The grid
+   border-collapse: separate (rather than collapse) is deliberate:
+   collapsed borders and position: sticky don't cooperate, and section 5
+   needs sticky headers. So borders live on the individual cells and the
+   table supplies only the top and left edges.
    ------------------------------------------------------------------ */
 
 table[role="grid"] {
@@ -84,27 +113,32 @@ table[role="grid"] {
 }
 
 /* The table is the single tab stop, so its focus ring frames the whole
-   sheet. That tells a sighted onlooker "keystrokes go here". */
-table[role="grid"]:focus {
+   sheet: that's what tells a sighted onlooker "keystrokes go here".
+   The cursor ring in section 9 marks the cell within it. */
+table[role="grid"]:focus-visible {
   outline: 2px solid var(--sheet-cursor);
   outline-offset: -1px;
 }
-table[role="grid"]:focus:not(:focus-visible) { outline: none; }
 
 /* ------------------------------------------------------------------
-   4. Cells
+   4. Base cell  [weakest layer]
    Fixed width and height, one line of text, clipped with an ellipsis
    when it doesn't fit — the same overflow behaviour real spreadsheets
-   use. The full value is still in the accessibility tree, so a screen
+   use. The full value stays in the accessibility tree, so a screen
    reader reads all of it regardless of what's visible.
+
+   scroll-margin reserves room for the sticky header strips: without it,
+   scrollIntoView will happily park a cell directly underneath the
+   frozen top row, technically "in view" but covered.
    ------------------------------------------------------------------ */
 
-td {
+table[role="grid"] td {
   width: var(--sheet-cell-width);
-  height: var(--sheet-row-height);
   max-width: var(--sheet-cell-width);
+  height: var(--sheet-row-height);
   padding: 0 0.35rem;
   vertical-align: middle;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -112,66 +146,62 @@ td {
   border-bottom: 1px solid var(--sheet-line);
   font-variant-numeric: tabular-nums;   /* digits line up in a column  */
   cursor: default;
+  scroll-margin-top: var(--sheet-row-height);
+  scroll-margin-left: var(--sheet-cell-width);
 }
 
-/* Data cells: text left, which is the plain default. See the note in
-   my accompanying message about right-aligning numbers — that needs a
-   one-line change in #displayCellContents to be expressible in CSS. */
-td[role="gridcell"] {
-  text-align: left;
-}
-
-/* If you add data-type="number", this rule right-aligns numeric cells,
-   which is the single strongest visual cue that something is a
-   spreadsheet rather than a table of text. Harmless until then. */
-td[data-type="number"] {
+/* Right-aligned numbers against left-aligned text is the single
+   strongest visual cue that something is a spreadsheet rather than a
+   table of words. Needs data-type="number" set in the render path; the
+   rule is inert until then. */
+table[role="grid"] td[data-type="number"] {
   text-align: right;
 }
 
 /* ------------------------------------------------------------------
    5. Header cells
    Grey fill, semibold, and a heavier rule on the edge facing the data,
-   so the tagged row/column reads as a label strip.
+   so a tagged row or column reads as a label strip.
    ------------------------------------------------------------------ */
 
-td[role="columnheader"],
-td[role="rowheader"] {
-  background: var(--sheet-header-bg);
+table[role="grid"] td[role="columnheader"],
+table[role="grid"] td[role="rowheader"] {
+  background-color: var(--sheet-header-bg);
   color: var(--sheet-header-text);
   font-weight: 600;
 }
 
-td[role="columnheader"] {
+table[role="grid"] td[role="columnheader"] {
   text-align: center;
   border-bottom: 2px solid var(--sheet-line-strong);
 }
 
-td[role="rowheader"] {
+table[role="grid"] td[role="rowheader"] {
   text-align: left;
   border-right: 2px solid var(--sheet-line-strong);
 }
 
-/* Freeze panes, but only in the cases where freezing is correct.
-   A header row pinned to the top only makes sense if it IS the top
-   row; a header column pinned to the left only if it IS the left
-   column. Header rows or columns tagged anywhere else scroll normally
-   rather than hovering over the middle of the sheet. */
-tr:first-child td[role="columnheader"] {
+/* Freeze panes, but only where freezing is correct. A header row pinned
+   to the top only makes sense if it IS the top row; a header column
+   pinned to the left only if it IS the left column. Headers tagged
+   anywhere else scroll normally rather than hovering over the middle of
+   the sheet. */
+table[role="grid"] tr:first-child td[role="columnheader"] {
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
-td[role="rowheader"]:first-child {
+table[role="grid"] td[role="rowheader"]:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
 }
 
-/* The corner cell belongs to both strips, so it needs to sit above
+/* The corner cell belongs to both strips, so it must sit above
    whichever one is scrolling past it. */
-tr:first-child td[role="rowheader"]:first-child,
-tr:first-child td[role="columnheader"]:first-child {
+table[role="grid"] tr:first-child td:first-child[role="rowheader"],
+table[role="grid"] tr:first-child td:first-child[role="columnheader"] {
   z-index: 3;
 }
 
@@ -179,11 +209,12 @@ tr:first-child td[role="columnheader"]:first-child {
    6. Formula cells
    A small green wedge in the top-left corner, drawn as a background
    gradient rather than generated content so it stays out of the
-   accessibility tree. Subtle: it marks the cell without competing with
-   the value.
+   accessibility tree. It marks the cell without competing with the
+   value. This sets background-image only, so it layers over whatever
+   background-color the sections below apply.
    ------------------------------------------------------------------ */
 
-td[data-formula] {
+table[role="grid"] td[data-formula] {
   background-image: linear-gradient(
     135deg,
     var(--sheet-formula) 0 0.4rem,
@@ -194,12 +225,13 @@ td[data-formula] {
 
 /* ------------------------------------------------------------------
    7. Error cells
-   Pale pink fill, dark red text, and a thick red left edge. Colour is
-   not the only signal — the text itself is "#parse" or similar, and
-   aria-description carries the explanation.
+   Pale pink fill, dark red text, and a thick red left edge. Placed
+   after headers so an error in a header cell still reads as an error.
+   Colour is not the only signal: the text itself is "#parse" or
+   similar, and aria-description carries the explanation.
    ------------------------------------------------------------------ */
 
-td[aria-invalid="true"] {
+table[role="grid"] td[aria-invalid="true"] {
   background-color: var(--sheet-error-bg);
   color: var(--sheet-error-text);
   font-weight: 600;
@@ -207,63 +239,79 @@ td[aria-invalid="true"] {
 }
 
 /* ------------------------------------------------------------------
-   8. Cursor and selection
-   The cursor is a blue ring drawn inside the cell's own box, so it
-   never shifts the grid by a pixel. Range shading uses the
-   data-in-range hook described in my message; it does nothing until
-   you set that attribute.
+   8. Range membership
+   Pale blue fill over the whole selection. After errors, because when
+   you've selected a block you want to see its extent as one shape —
+   an error cell inside it keeps its red text but joins the block.
    ------------------------------------------------------------------ */
 
-td[aria-selected="true"] {
-  outline: 2px solid var(--sheet-cursor);
-  outline-offset: -2px;
-  position: relative;
-  z-index: 1;                 /* keeps the ring above neighbours' borders */
-}
-
-td[data-in-range] {
+table[role="grid"] td[data-in-range] {
   background-color: var(--sheet-range);
 }
 
-/* The mark end of an in-progress range: dashed, to read as "provisional". */
-td[data-mark] {
+/* The anchor end of an in-progress range: dashed, to read as
+   "provisional" rather than settled. */
+table[role="grid"] td[data-mark] {
   outline: 2px dashed var(--sheet-cursor);
   outline-offset: -2px;
 }
 
 /* ------------------------------------------------------------------
-   9. In-cell editing
-   The text input fills the cell edge to edge with no chrome of its
-   own, so editing looks like typing directly into the grid rather
-   than a box appearing on top of it.
+   9. Cursor  [strongest layer]
+   A solid blue ring, drawn INSIDE the cell's own box
+   (outline-offset: -2px) so it never shifts the grid by a pixel.
+   z-index lifts it above the neighbouring cells' borders, which would
+   otherwise cut across it.
+
+   Keyed off data-cursor rather than :focus, so it is independent of
+   which element actually holds DOM focus. That matters in two places:
+   during editing, when focus is on the <input> inside the cell, and
+   when focus leaves for the help dialog or file picker. In both cases
+   the cursor stays visible, which is what a spreadsheet should do.
    ------------------------------------------------------------------ */
 
-td[data-editing] {
-  padding: 0;
-  overflow: visible;
-  background: var(--sheet-bg);
+table[role="grid"] td[data-cursor] {
   outline: 2px solid var(--sheet-cursor);
   outline-offset: -2px;
-  z-index: 4;
+  position: relative;
+  z-index: 5;
 }
 
-td[data-editing] input[type="text"] {
+/* ------------------------------------------------------------------
+   10. In-cell editing
+   The input fills the cell with no chrome of its own, so editing looks
+   like typing directly into the grid rather than a box appearing on
+   top of it. min-width lets the editor spill over its neighbours: a
+   formula is usually far wider than 6.5rem, and without this a sighted
+   user would be editing through a ten-character window.
+   ------------------------------------------------------------------ */
+
+table[role="grid"] td[data-editing] {
+  padding: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 6;
+}
+
+table[role="grid"] td[data-editing] input[type="text"] {
+  position: relative;
+  min-width: 20rem;
   width: 100%;
   height: var(--sheet-row-height);
   box-sizing: border-box;
   padding: 0 0.35rem;
   border: none;
-  outline: none;
-  background: transparent;
+  outline: none;                /* the cell's ring is the focus cue */
+  background: var(--sheet-bg);
   font: inherit;
   color: var(--sheet-text);
 }
 
 /* ------------------------------------------------------------------
-   10. Status bar
-   A thin strip along the bottom of the window, the way spreadsheets
-   put "Ready" or "Sum: 42" down there. Kept visible even when empty
-   so the layout doesn't jump.
+   11. Status bar
+   A thin strip along the bottom of the window, the way spreadsheets put
+   "Ready" or "Sum: 42" down there. Holds its height when empty so the
+   layout doesn't jump.
    ------------------------------------------------------------------ */
 
 .status {
@@ -281,10 +329,10 @@ td[data-editing] input[type="text"] {
 }
 
 /* ------------------------------------------------------------------
-   11. Help dialog
-   Plain white card, centred, with a header bar and a scrollable body.
-   The key table gets the same grid treatment as the sheet so the two
-   feel like one product.
+   12. Help dialog
+   Plain card, centred, with a header bar and a scrollable body. Its
+   table is an ordinary table, and since section 4 is scoped to
+   table[role="grid"], none of the cell sizing reaches it.
    ------------------------------------------------------------------ */
 
 #help-dialog {
@@ -322,6 +370,7 @@ td[data-editing] input[type="text"] {
   border: 1px solid var(--sheet-line-strong);
   border-radius: 3px;
   background: var(--sheet-bg);
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
@@ -340,8 +389,8 @@ td[data-editing] input[type="text"] {
 #help-dialog h4 { margin: 0.9rem 0 0.2rem; font-size: 0.95rem; }
 #help-dialog p  { margin: 0.4rem 0; }
 
-/* The keyboard reference table: command on the left, key on the right,
-   in a monospace face so the key names stay visually distinct. */
+/* Keyboard reference: command on the left, key on the right in a
+   monospace face so key names stay visually distinct from prose. */
 #help-dialog table {
   border-collapse: collapse;
   width: 100%;
@@ -350,13 +399,9 @@ td[data-editing] input[type="text"] {
 
 #help-dialog th,
 #help-dialog td {
-  width: auto;
-  max-width: none;
-  height: auto;
   text-align: left;
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--sheet-line);
-  white-space: normal;
 }
 
 #help-dialog th { font-weight: 500; }
@@ -369,7 +414,7 @@ td[data-editing] input[type="text"] {
 }
 
 /* ------------------------------------------------------------------
-   12. Dark colour scheme
+   13. Dark colour scheme
    Only the tokens change; every rule above follows automatically.
    ------------------------------------------------------------------ */
 
@@ -391,26 +436,24 @@ td[data-editing] input[type="text"] {
 }
 
 /* ------------------------------------------------------------------
-   13. Windows High Contrast / forced colours
-   In forced-colours mode the system overrides our palette, so the
-   cues that rely on fill colour would vanish. Redraw them as borders,
+   14. Windows High Contrast / forced colours
+   Forced colours overrides our palette, so cues that rely on fill
+   colour would vanish. Redraw them as borders and text decoration,
    which forced colours preserves.
    ------------------------------------------------------------------ */
 
 @media (forced-colors: active) {
-  td[aria-invalid="true"] {
+  table[role="grid"] td[aria-invalid="true"] {
     box-shadow: none;
-    border: 2px solid;
     text-decoration: underline wavy;
   }
 
-  td[aria-selected="true"],
-  td[data-editing] {
-    outline: 3px solid Highlight;
-    outline-offset: -3px;
+  table[role="grid"] td[data-in-range] {
+    border: 1px dotted Highlight;
   }
 
-  td[data-in-range] {
-    border: 1px dotted Highlight;
+  table[role="grid"] td[data-cursor] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
   }
 }

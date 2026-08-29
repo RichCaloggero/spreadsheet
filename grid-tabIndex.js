@@ -27,7 +27,7 @@ const cell = document.createElement("td");
 cell.dataset.label = toLabel(i, j);
 if (requireGridcellRole) cell.role = "gridcell";
 //cell.innerHTML = "&nbsp;";
-//cell.tabIndex = -1;
+cell.tabIndex = -1;
 row.appendChild(cell);
 } // for column
 
@@ -36,8 +36,9 @@ grid.appendChild(row);
 
 
 grid.role = "grid";
-grid.ariaActiveDescendantElement = grid.querySelector("td");
-grid.tabIndex = 0;
+//grid.ariaActiveDescendantElement = grid.querySelector("td");
+//grid.tabIndex = 0;
+this.#setCurrentCell (grid.querySelector("td"));
 
 setTimeout(() => {
 this.focus();
@@ -45,23 +46,33 @@ this.#announceCell(this.currentCell);
 }, 50);
 } // constructor
 
-focus () {this.#grid.focus();}
 
 get dom () {return this.#grid;}
-get currentCell () {return this.#grid.ariaActiveDescendantElement;}
-get cursor () {  return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
+get currentCell () {return this.#grid.querySelector("td[tabindex='0']");}
+
+#setCurrentCell (cell) {
+//this.#grid.ariaActiveDescendantElement = cell;
+if (this.currentCell) this.currentCell.tabIndex = -1;
+cell.tabIndex = 0;
+cell.focus();
+this.#generateDescription(cell);        
+} // #setCurrentCell
+
+
+get cursor () {  return this.currentCell?.dataset.label ?? null;}
 set cursor (label) {this.#grid.activeDescendantElement = this.labelToCell(label);}
+focus () {this.currentCell.focus();}
 
 get maxRowCount () {return this.#maxRowCount;}
 get maxColumnCount () {return this.#maxColumnCount;}
 get helpDialog() {return this.#helpDialog;}
 get value () {return this.getValue(this.cursor);}
 get formula () {return this.getFormula(this.cursor);}
-get isEditing () {return this.getIsEditing(this.cursor);}
+get isEditing () {return this.#isEditing(this.cursor);}
 
 getValue (label) {return this.labelToCell(label).textContent;}
 getFormula (label) {return this.labelToCell(label).dataset.formula;}
-getIsEditing (label) {return this.labelToCell(label).hasAttribute("data-editing");}
+#isEditing (label) {return this.labelToCell(label).hasAttribute("data-editing");}
 
 moveTo(label) {
     const oldCell = this.currentCell;
@@ -97,8 +108,7 @@ lastLabelInGrid (label) {return this.cellToLabel(this.#lastCellInGrid(this.label
 
 
 clear () {
-for (const cell of this.#grid.querySelectorAll("td")) {
-cell.removeAttribute("data-cursor");
+for (const cell of this.dom.querySelectorAll("td")) {
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-formula");
 cell.removeAttribute("data-in-range");
@@ -121,20 +131,13 @@ this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 } // #clearMark
 
 
-setCurrentCell (cell) {
-  if (not(cell)) return;
 
-  const previous = this.#grid.querySelector("td[data-cursor]");
-  if (previous === cell) return;
-  if (previous) previous.removeAttribute("data-cursor");
-
-  cell.setAttribute("data-cursor", true);
-  this.#grid.ariaActiveDescendantElement = cell;
-
-  cell.scrollIntoView({block: "nearest", inline: "nearest"});
-  this.#generateDescription(cell);
-} // setCurrentCell
-
+#unselectAllCells () {
+    for (const cell of this.findCells("td:not([data-in-range)])")) {
+        if (cell.hasAttribute("data-in-range")) cell .setAttribute("aria-selected", "false");
+        else cell .removeAttribute("aria-selected");
+} // for
+} // #unselectAllCells
 
 #allCells () {return [...this.#grid.querySelectorAll("td")];}
 
