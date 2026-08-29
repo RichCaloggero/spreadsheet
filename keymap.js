@@ -31,7 +31,7 @@ const modeTitles = {
 ["control+s", {help: "save", command: c => c.save()}],
 ["control+o", {help: "open", command: c => c.load()}],
 
-["alt+=", {help: "autosum over defined range, if any", command: c => c.autosum()}],
+["alt+=", {help: "autosum over defined range, if any", command: c => c.autoSum()}],
 ])],
 ["edit", new Map([
   ["enter", {help: "end editing", command: c => c.endEditing()}],

@@ -42,7 +42,7 @@ load () {
     try {
       data = JSON.parse(text);
       this.#view.clear();
-      this.#clearMark();
+      this.#clearRange();
       this.#model.load(data);
     } catch (e) {
       return this.#view.statusMessage("could not load: not a valid spreadsheet file.");
@@ -81,7 +81,7 @@ moveBy (dRow, dCol) {
 if (range)     {
   this.#view.markRange(range);
 } else {
-  this.#clearMark();;
+  this.#clearRange();;
 } // if
 } // if
   
@@ -108,7 +108,7 @@ errors |= this.#view.displayCellContents(this.#model.cellContents(name));
 return errors;
 } // renderCells
 
-startEditing () {this.#view.startEditing();}
+startEditing (text) {this.#view.startEditing(text);}
 
 endEditing () {
     const result = this.#view.endEditing();
@@ -202,7 +202,7 @@ this.#renderCells(this.#model.deleteCell(label));
 this.#view.cleanupDeletedCell(label);
 } // for
 
-if (this.#mark) this.#clearMark();
+if (this.#mark) this.#clearRange();
 this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
 } // delete
 
@@ -224,11 +224,11 @@ if (mc === cc) return new Set (columnSegment(mr, mc, cr));
 markRowAsColumnHeaders () {this.#view.setColumnHeaders();}
 markColumnAsRowHeaders () {this.#view.setRowHeaders();}
 
-#clearMark () {
+#clearRange () {
   this.#mark = null;
   this.#view.clearRange();
     this.#view.statusMessage("range cleared.");
-} // #clearMark
+} // #clearRange
 
 cancelEditing () {
   this.#view.cancelEditing();
@@ -237,11 +237,23 @@ cancelEditing () {
 
   cancelRange () {
   if (this.#mark) {
-    this.#clearMark();
+    this.#clearRange();
   } // if
 } // cancelRange
 
 displayHelpDialog () {this.#view.displayHelpDialog();}
+
+autoSum () {
+const range = this.#getRange();
+if (range?.size > 0) {
+  range.delete(this.#view.cursor);
+  const values = [...range.values()];
+this.#clearRange();
+  this.startEditing(`=sum(${values.join(",")})`);
+} else {
+  this.#view.statusMessage("Autosum has no selection.");
+} // if
+} // autoSum
 
 } // class
 
@@ -252,7 +264,6 @@ function displayHelpDialog (controller) {
 controller.displayHelpDialog();
 } // displayHelpDialog
 
-function cancel (c) {return c.cancel();}
 
 
 
@@ -261,11 +272,7 @@ function cancel (c) {return c.cancel();}
     
 
 
-function autosum (c) {c.autoSum();}
-    /*if this.#getRange().size > 0) controller.startEditing(`=sum(${expandRange(#range)})`);
-else statusMessage("Autosum has no selection.");
-} // autosum
-*/
+    
 
 
 /// helpers
@@ -281,7 +288,6 @@ function columnSegment (r1, r2, c) {
   return sequence(r1,r2)
   .map (x => toLabel(x, c));
 } // columnSegment
-
 
     function sequence (a, b) {
       return Array.from({length: Math.abs(a-b) + 1}, (_,i) => i + Math.min(a,b));

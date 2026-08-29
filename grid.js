@@ -149,7 +149,6 @@ const cell = this.currentCell;
 if (cell.hasAttribute("data-editing")) return;
 
 cell.setAttribute("data-editing", true);
-cell.setAttribute("data-old", cell.textContent);
 
 const text = overrideText? overrideText
 : cell.dataset.formula? cell.dataset.formula
