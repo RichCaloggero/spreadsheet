@@ -121,7 +121,7 @@ this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 } // #clearMark
 
 
-setCurrentCell (cell) {
+#setCurrentCell (cell) {
   if (not(cell)) return;
 
   const previous = this.#grid.querySelector("td[data-cursor]");

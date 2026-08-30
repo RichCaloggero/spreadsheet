@@ -217,7 +217,7 @@ execute (key) {
   if (not(l1)) return null;
 const [mr, mc] = parseLabel(l1), [cr, cc] = parseLabel(l2);
   if (mr === cr) return new Set(rowSegment(mr, mc, cc));
-if (mc === cc) return new Set (columnSegment(mr, mc, cr));
+if (mc === cc) return new Set (columnSegment(mr, cr, mc));
   return null;              // off-axis
 } // #getRange
 
@@ -246,7 +246,11 @@ displayHelpDialog () {this.#view.displayHelpDialog();}
 autoSum () {
 const range = this.#getRange();
 if (range?.size > 0) {
-  range.delete(this.#view.cursor);
+  const [l1,l2] = rangeOrder(this.#mark,this.#view.cursor);
+const type = rangeType(l1,l2);
+const [r,c] = parseLabel(l2);
+const target = type === 0? toLabel(r, c+1) : toLabel(r+1, c);
+this.#moveTo(target);
   const values = [...range.values()];
 this.#clearRange();
   this.startEditing(`=sum(${values.join(",")})`);
@@ -318,4 +322,11 @@ function rangeType (l1, l2) {
   c1 === c2? 1
   : -1;
 } // rangeType
+
+function rangeOrder (l1, l2) {
+  const coordinate = Number(not(rangeType(l1,l2)));
+  const x1 = parseLabel(l1)[coordinate];
+  const x2 = parseLabel(l2)[coordinate];
+  return x1 < x2? [l1,l2] : [l2,l1];
+} // rangeOrder
 
