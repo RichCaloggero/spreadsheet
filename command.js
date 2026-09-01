@@ -98,7 +98,7 @@ moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
 moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
 #renderCells (names = this.#model.allCells) {
-//console.log("loadCellsFromModel: ", names);
+//console.log("renderCells: ", names);
 let errors = false;
 
 for (const name of names) {
@@ -209,7 +209,13 @@ this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} delete
 execute (key) {
   const entry = lookup(this.mode, key);
   if (!entry) return false;      // unhandled: browser default runs
-  entry.command(this);
+  try {
+    entry.command(this);
+  } catch (e) {
+    console.log(e);
+    this.#view.statusMessage(e);
+  } // try
+
   return true;                   // handled: caller preventDefaults
 } // execute
 

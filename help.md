@@ -24,20 +24,18 @@ There will be bugs, and error reporting may be spotty or nonexistant.
 
 ### Defining ranges
 
-tp\>Unlike other programs, selecting items is done via mark set. You
-place a marker at one end of the range, move to the other and press the
-shortcut a second time to complete the selection. Moving among cells
-within a range announces the fact; escape clears the range. Starting a
-new range somewhere else also clears any other ranges that might exist;
+TO define a range, place a marker at one end of the range, then as you move, the range automatically extends in that direction. Moving among cells
+within a range announces that fact, as well as adjusting the selection.
+ Escape clears the range. Starting a new range somewhere else also clears any other ranges that might exist;
 only one range may exist at any one time.
 
 1.  Move to any cell and press control+space to set a mark
 2.  Move to any other cell in either the same row, or same column as the
-    mark and press control+space
+    mark; stop when the range is correct. 
 
-You\'ve now created a range of type row if all cells lie in the same
+You've now created a range of type row if all cells lie in the same
 row, or of type column if they lie in the same column. Rectangular
-ranges are not allowed.
+ranges are not allowed.  If you create a row range, then move to the next row, the range is automatically cleared, and the fact is announced.
 
 ### Autofilling
 
@@ -60,10 +58,10 @@ column. You now want to fill the second column with the square roots of
 each of these integers. Rather than having to enter a formula in each
 cell in column \"b\", do the following:
 
-1.  Assume integers in column \"a\" in rows 2 through 10
-2.  Move to column \"b\" and select a column range from b2 through b10
-3.  Move to any cell in that range and enter the formula \"=sqrt(a1)\"
+1.  Assume integers in column "a" in rows 2 through 10
+2.  Move to column "b" and select a column range from b2 through b10
+3.  Move to any cell in that range and enter the formula "=sqrt(a1)"
 
 The range now gets filled with formulas referencing all the cells in
-column \"a\" which are in the same row range as the range you\'ve
+column "a" which are in the same row range as the range you've
 selected

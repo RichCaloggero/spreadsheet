@@ -1,4 +1,3 @@
-//import { math } from "./math.min.js";
 import { not, getSymbols, isFormula } from "./utilities.js";
 import { parseLabel, formatLabel, toLabel } from "./coordinates.js";
 
@@ -6,9 +5,10 @@ class CellError {
 static #codes = new Map([
 ["parse", "cannot parse formula"],
 ["evaluation", "formula evaluation"],
-["circular", "circular reference (a1 refers to a2 refers to a1)"],
+["circular", "circular reference (i.e. a1 refers to a2 refers to a1)"],
 ["not-a-number", "invalid real value i.e. 0/0 or sqrt(-1)"],
 	["divide-by-zero", "division by zero"],
+["compile", "math expression compilation error"],
 
 	["unknown", "unknown error"],
 ]); // new Map
@@ -50,13 +50,14 @@ return [...this.#cells.keys()];
 } // allCells
 
 cellContents (name) {
+  console.log("cellContent: ", name);
   const cell = this.#cells.get(name);
-  if (not(cell)) return {name, role: "gridcell"};
+  if (not(cell)) return {name, role: ""};
 
   const value = cell.value;
   const failed = value instanceof CellError;
 
-  return {
+  const result = {
     name: cell.name,
     role: cell.role,
     input: cell.input,
@@ -65,6 +66,8 @@ cellContents (name) {
     error: failed? value.code : "",
     description: failed? value.description : ""
   };
+
+return result;
 } // cellContents
 
 load (entries) {
@@ -76,7 +79,7 @@ for (const data of entries) {
 	const cell = this.#setInput(data.name, data.input, data.role);
 } // for
 
-this.#recalculate([...this.#cells.keys()]);
+this.#recalculate([...this.#cells.keys()], true);
 } // load
 
 getData () {
@@ -123,7 +126,7 @@ const cell = this.#cells.has(name)? this.#cells.get(name)
 name, input, role,
 formula: "",
 code: null,
-get hasFormula () {return not(this.code === null);},
+get hasFormula () {return isFormula(this.input);},
 value: input
 }; // cell
 
@@ -171,26 +174,34 @@ cell.value = (input !== "" && not(Number.isNaN(n))) ? n : input;
 return cell;
 } // #setInput
 
-#recalculate (names) {
+#recalculate (names, skipDirtyComputation = false) {
 // find dirty cells
-const dirty = names.length > 1? new Set(names)
-: this.#computeDirtySet(names[0]);
+const dirty = skipDirtyComputation? new Set(names)
+: this.#computeDirtySet(names);
 //console.log("dirty: ", dirty);
 
-const sorted = this.#topologicalSort(dirty);
-//console.log("sorted: ", sorted);
+const {order: sorted, cycles} = this.#topologicalSort(dirty);
+//console.log("sorted, cycles: ", sorted, cycles);
+
 
 for (const name of sorted) {
 this.#evaluate(this.#cells.get(name));
 } // for
 
-//console.log("recalculate returning ", [...sorted]);
-return [...sorted];
+for (const name of cycles) {
+	this.#cells.get(name).value = new CellError("circular");
+//console.log("recalculate: cycle ", this.#cells.get(name).value);
+} // for
+
+
+const result = [...sorted, ...cycles]; // array concatenation
+//console.log("recalculate: result ", result);
+return result;
 } // #recalculate
 
 
-#computeDirtySet (name) {
-const dirty = new Set([name]);
+#computeDirtySet (names) {
+const dirty = new Set(names);
 //console.log("computeDirty: ", dirty);
 
 for (const name of dirty) {
@@ -220,7 +231,13 @@ if (inDegree.get(dep) === 0) queue.push(dep);
 } // for
 } // while queue.length
 
-return order;
+// cycles
+const cycles = order.length < dirty.size? dirty.difference(new Set(order))
+: new Set();
+
+
+
+return {order, cycles};
 } // #topologicalSort
 
 #evaluate (cell) {
@@ -232,21 +249,20 @@ for (const name of this.#precedentsOf(cell.name)) {
 //console.log("- examine precedent ", name);
 	const value = this.#cells.has(name)? this.#cells.get(name).value : "";
 	if (value instanceof CellError) {
-cell.value = new CellError("evaluation", `precedent ${name} has an error`);
+	console.log("precedence has error: ", cell.value);
 	return;
 	} // if
 } // for
 
-const scope = this.#createScope(this.#precedentsOf(cell.name));
+	const scope = this.#createScope(this.#precedentsOf(cell.name));
 //console.log("- scope: ", scope);
 try {
 cell.value = this.#evaluateCode(cell.code, scope);
-	//console.log("- cell.value = ", cell.value);
+	console.log("- cell.value = ", cell.value);
 	} catch (e) {
 //console.log("- - catch: ", e);
 cell.value = new CellError("evaluation", e);
 		} // try
-
 } // if
 //console.log("#evaluate: cell.value = ", cell.value);
 
@@ -268,10 +284,10 @@ return value;
 const scope = new Map();
 for (const name of names) {
 const cell = this.#cells.get(name);
-scope.set(name, cell? cell.value : 0);
+scope.set(name, cell? cell.value : "");
 } // for
 
-//console.log("created scope for ", names, "; ", scope);
+console.log("created scope for ", names, "; ", scope);
 return scope;
 } // #createScope
 
@@ -349,7 +365,7 @@ try {
 return math.parse(text);
 
 } catch (e) {
-console.log("createFormula: ", text, "\n", e);
+//console.log("createFormula: ", text, "\n", e);
 return new CellError("parse", `${e} : "${text}"`);
 } // try
 } // createFormula

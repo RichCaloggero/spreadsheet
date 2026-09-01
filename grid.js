@@ -198,9 +198,9 @@ return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role}
 
 displayCellContents (data) {
 //console.log("displayCellContents: ", data);
-const {name, value, role, input, hasFormula} = data;
+const {name, value, role, input, hasFormula, error} = data;
 const cell = this.labelToCell(name);
-//console.log("displayCellContents: ", name, input, role, value, hasFormula, cell);
+//console.log("displayCellContents: ", name, input, role, value, hasFormula, error, cell);
 
 cell.textContent = value;
 cell.role = role;
