@@ -5,6 +5,7 @@ class CellError {
 static #codes = new Map([
 ["parse", "cannot parse formula"],
 ["evaluation", "formula evaluation"],
+["ref", "bad ref() expression: cell references like a1 not allowed"],
 ["circular", "circular reference (i.e. a1 refers to a2 refers to a1)"],
 ["not-a-number", "invalid real value i.e. 0/0 or sqrt(-1)"],
 	["divide-by-zero", "division by zero"],
@@ -32,7 +33,6 @@ return `${codes.get(code)}; ${this.detail}`;
 } // description
 } // class
 
-
 export class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
@@ -42,7 +42,7 @@ export class Spreadsheet {
 constructor () {
 } // constructor
 
-//setInput (...args) {return this.#setInput(...args);}
+//setInput (...args) {return this.setInput(...args);}
 get allNames () {return [...this.#cells.keys()];}
 
 get allCells () {
@@ -76,10 +76,10 @@ load (entries) {
 //console.log(entries);
 
 for (const data of entries) {
-	const cell = this.#setInput(data.name, data.input, data.role);
+	const cell = this.setInput(data.name, data.input, data.role);
 } // for
 
-this.#recalculate([...this.#cells.keys()], true);
+this.recalculate([...this.#cells.keys()], true);
 } // load
 
 getData () {
@@ -109,13 +109,13 @@ if (not(name)) {
 throw new Error("setCellContents: cell label missing or invalid.");
 } // if
 
-const cell = this.#setInput(name, input, role, range, oldInput);
+const cell = this.setInput(name, input, role, range, oldInput);
 //console.log("setInput: ", cell);
 
-return this.#recalculate([name]);
+return this.recalculate([name]);
 } // setCellContents
 
-#setInput (name, input, role = "gridcell", range = new Set([]), oldInput = "") {
+setInput (name, input, role = "gridcell", range = new Set([]), oldInput = "") {
 input = input.toString().trim();
 oldInput = oldInput.toString().trim();
 this.#replayQueue.push ({name, input, oldInput});
@@ -175,9 +175,9 @@ cell.value = (input !== "" && not(Number.isNaN(n))) ? n : input;
 } // if
 
 return cell;
-} // #setInput
+} // setInput
 
-#recalculate (names, skipDirtyComputation = false) {
+recalculate (names, skipDirtyComputation = false) {
 // find dirty cells
 const dirty = skipDirtyComputation? new Set(names)
 : this.#computeDirtySet(names);
@@ -200,7 +200,7 @@ for (const name of cycles) {
 const result = [...sorted, ...cycles]; // array concatenation
 //console.log("recalculate: result ", result);
 return result;
-} // #recalculate
+} // recalculate
 
 
 #computeDirtySet (names) {
@@ -257,7 +257,7 @@ for (const name of this.#precedentsOf(cell.name)) {
 	} // if
 } // for
 
-	const scope = this.#createScope(this.#precedentsOf(cell.name));
+	const scope = this.#createScope(this.#precedentsOf(cell.name), ...parseLabel(cell.name));
 //console.log("- scope: ", scope);
 try {
 cell.value = this.#evaluateCode(cell.code, scope);
@@ -283,8 +283,8 @@ if (typeof value === "number" && not(Number.isFinite(value))) {
 return value;
 } // #evaluateCode
 
-#createScope (names) {
-const scope = new Map();
+#createScope (names, row, column) {
+const scope = new Map([...initialScope(row, column)]);
 for (const name of names) {
 const cell = this.#cells.get(name);
 scope.set(name, cell? cell.value : "");
@@ -327,7 +327,7 @@ if (not(this.#cells.has(name))) return;
 this.#cleanupDependencies(name);
 this.#cells.delete(name);
 
-return this.#recalculate([name]);
+return this.recalculate([name]);
 } // #deleteCell
 
 has (name) {return this.#cells.has(name);}
@@ -339,9 +339,9 @@ test1 () {
 
 for (const key in monthNames) {
 const label = `${"abcdefghijklmnopqrstuvwxyz".charAt(Number(key)+1)}1`;
-this.#setInput(label, monthNames[key], "columnheader");
+this.setInput(label, monthNames[key], "columnheader");
 } // for
-this.#recalculate(this.allNames);
+this.recalculate(this.allNames);
 } // test1
 
 test2 () {
@@ -375,12 +375,7 @@ return new CellError("parse", `${e} : "${text}"`);
 
 function evaluateRefs (node, cell) {
 const [row, column] = parseLabel(cell.name);
-const argScope = new Map([
-["_r", row],
-["_c", column],
-["_row", row],
-["_col", column]
-]);
+const argScope = initialScope(row, column);
 
 const isRef = n => n.isFunctionNode && n.fn.name === "ref";
 const refArgs = n => n.filter(n => isRef(n))
@@ -406,3 +401,11 @@ return null;
 return node.transform(transformer);
 } // evaluateRefs
 
+function initialScope (row, column) {
+return new Map([
+["_r", row],
+["_c", column],
+["_row", row],
+["_col", column]
+]);
+} // initialScope

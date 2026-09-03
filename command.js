@@ -125,13 +125,24 @@ else this.#renderCells(this.#model.setCellContents(label, input, role));
 return this.#view.labelToCell(label) && this.#mark;
   } // #autoFillPossible
 
-  #autofill (label, input, role) {
-  const range = this.#getRange();
+#autofill (label, input, role) {
+const range = this.#getRange();
+console.log("autofill: ", [...range]);
+for (label of range) this.#model.setInput(label, input, role);
+this.#model.recalculate([...range]);
+for (label of range) this.#renderCells([...range]);
+
+} // #autofill
+
+
+/*#autofill (label, input, role) {
+const range = this.#getRange();
 if (isNumeric(input)) return this.#fillConstant(range, input, role);
 else this.#fillFormula(label, range, input, role);
   
   } // #autofill
-  
+  */
+
 #fillConstant (range, value, role) {
 for (const label of range) {
   this.#renderCells(this.#model.setCellContents(label, value, role));

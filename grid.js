@@ -2,6 +2,7 @@ import { not, isFunction } from "./utilities.js";
 import { toLabel, parseLabel, formatLabel } from "./coordinates.js";
 
 const requireGridcellRole = false;
+const useAriaNotify = false;
 
 export class Grid {
 #grid = null;
@@ -313,7 +314,7 @@ get column () {
 
 statusMessage (text, remove = false) {
 setTimeout(() => {
-if (document.ariaNotify) {
+if (document.ariaNotify && useAriaNotify) {
 document.ariaNotify(text);
 return;
 } // if
