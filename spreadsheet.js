@@ -143,6 +143,9 @@ cell.value = cell.formula;
 return cell;
 } // if
 
+cell.formula = evaluateRefs(cell.formula, cell);
+if (not(cell.formula)) return cell;
+
 try {
 cell.code = cell.formula.compile();
 } catch (e) {
@@ -369,4 +372,37 @@ return math.parse(text);
 return new CellError("parse", `${e} : "${text}"`);
 } // try
 } // createFormula
+
+function evaluateRefs (node, cell) {
+const [row, column] = parseLabel(cell.name);
+const argScope = new Map([
+["_r", row],
+["_c", column],
+["_row", row],
+["_col", column]
+]);
+
+const isRef = n => n.isFunctionNode && n.fn.name === "ref";
+const refArgs = n => n.filter(n => isRef(n))
+.map(n => n.args);
+
+const refSymbols = n => refArgs(n).flat()
+.map(a => getSymbols(a)).flat();
+
+const transformer = n =>
+isRef(n)?
+new math.SymbolNode(toLabel(...n.args.map(a => a.evaluate(argScope))))
+: n;
+
+const symbols = new Set(refSymbols(node));
+const allowedSymbols = new Set([...argScope.keys()]);
+const badSymbols = symbols.difference(allowedSymbols);
+
+if (badSymbols.size > 0) {
+cell.value = new CellError("badRef", `the following symbols are not allowed in ref() expressions: ${[...badSymbols].join(", ")}`);
+return null;
+} // if
+
+return node.transform(transformer);
+} // evaluateRefs
 
