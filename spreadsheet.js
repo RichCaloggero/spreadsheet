@@ -284,7 +284,7 @@ return value;
 } // #evaluateCode
 
 #createScope (names, row, column) {
-const scope = new Map([...initialScope(row, column)]);
+const scope = new Map([...createInitialScope(row, column)]);
 for (const name of names) {
 const cell = this.#cells.get(name);
 scope.set(name, cell? cell.value : "");
@@ -319,10 +319,6 @@ this.#precedentsOf(cellName).clear();
 
 deleteCell (name) {
 if (not(this.#cells.has(name))) return;
-
-	const cell = this.#cells.get(name);
-//cell.input = cell.value = "";
-
 
 this.#cleanupDependencies(name);
 this.#cells.delete(name);
@@ -375,7 +371,7 @@ return new CellError("parse", `${e} : "${text}"`);
 
 function evaluateRefs (node, cell) {
 const [row, column] = parseLabel(cell.name);
-const argScope = initialScope(row, column);
+const argScope = createInitialScope(row, column);
 
 const isRef = n => n.isFunctionNode && n.fn.name === "ref";
 const refArgs = n => n.filter(n => isRef(n))
@@ -401,7 +397,7 @@ return null;
 return node.transform(transformer);
 } // evaluateRefs
 
-function initialScope (row, column) {
+function createInitialScope (row, column) {
 return new Map([
 ["_r", row],
 ["_c", column],
@@ -412,8 +408,9 @@ return new Map([
 
 // getSymbols excludes function symbol nodes and math.js range nodes, and all symbols defined by initialScope()
 function getSymbols (node) {
+const scope = new Map([...createInitialScope(0,0)]);
 return node
-.filter((node, path, parent) => node.type === "SymbolNode" && not(initialScope.has(node.name)) && path !== "fn" && parent?.type !== "RangeNode")
+.filter((node, path, parent) => node.type === "SymbolNode" && not(scope.has(node.name)) && path !== "fn" && parent?.type !== "RangeNode")
 .map(node => node.name.trim());
 } // getSymbols
 

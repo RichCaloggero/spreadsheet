@@ -71,19 +71,22 @@ view.statusMessage(e);
 } // save
 
 moveBy (dRow, dCol) {
+//console.log("moveBy: ", dRow, dCol);
 const [row, col] = parseLabel(this.#view.cursor);
+//console.log("- cursor: ", row, col);
 return this.#moveTo(toLabel(row + dRow, col + dCol));
 } // moveBy
 
 #moveTo (label) {
-if (!this.#view.labelToCell(label)) return false;   // off-grid, stay put
+//console.log("moveTo: ", label, this.#view.has(label));
+if (not(this.#view.has(label))) return false;   // off-grid, stay put
 this.#view.moveTo(label);
 if (this.#mark) {
 const range =       this.#getRange();
 if (range)     {
 this.#view.markRange(range);
 } else {
-this.#clearRange();;
+this.#clearRange();
 } // if
 } // if
 
@@ -150,36 +153,50 @@ if (this.#mark) this.#clearRange();
 this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
 } // delete
 
-undo () {
-const data = this.#undoStack.pop();
-console.log("undo: ", data);
+undo () {this.#replay();}
+redo () {this.#replay(true);}
+
+#replay (redo = false) {
+console.log("replay: ", redo, this.#undoStack.length, this.#redoStack.length);
+if (not(redo) && this.#undoStack.length === 0
+|| redo && this.#redoStack.length === 0) return;
+const data = (redo? this.#redoStack : this.#undoStack)
+.pop();
+console.log("- data: ", data);
 
 const labels = [];
 for (const cell of data.cells) {
+console.log("- cell: ", cell);
 labels.push(cell.label);
-if (cell.oldInput === null) {
+
+const input = redo? cell.input : cell.oldInput;
+if (input === null) {
 console.log("- deleting ", cell.label);
 this.#model.deleteCell(cell.label);
 } else {
-console.log("- input: ", cell.oldInput);
-this.#model.setInput(cell.label, cell.oldInput, cell.oldRole);
+const role = redo? cell.role : cell.oldRole;
+console.log("- input: ", input, role);
+this.#model.setInput(cell.label, input, role);
 } // if
 } // for
 
 this.#renderCells(this.#model.recalculate(labels));
-this.#moveTo(data.cursor);
-this.#view.statusMessage(`undo: ${data.type}; ${data.cells.length} cells.`);
-this.#redoStack.push (data);
-} // undo
 
-redo () {
+console.log("moveTo: ", data.cursor);
+if (data.cursor) this.#moveTo(data.cursor);
+this.#view.statusMessage(`${redo? "redo" : "undo"} ${data.type} ${data.type === "fill"? ": " + data.cells.length + " cells" : ""}`);
 
-} // #redo
+(redo? this.#undoStack : this.#redoStack)
+.push (data);
+} // replay
+
 
 execute (key) {
 const entry = lookup(this.mode, key);
-if (!entry) return false;      // unhandled: browser default runs
+//console.log("execute: ", key, entry);
+if (not(entry)) return false;      // unhandled: browser default runs
 try {
+//console.log("- entry.command: ", entry.command);
 entry.command(this);
 } catch (e) {
 console.log(e);

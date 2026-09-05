@@ -44,7 +44,9 @@ throw new Error(`bad coordinates: ${row},${column}; both must be parsable as pos
 
 
 export function toLabel (row, column) {
-	return `${columnLabels.charAt(column)}${row+1}`;
+const r = row < 0? 0 : row;
+const c = column < 0? 0 : column;
+return `${columnLabels.charAt(c)}${r+1}`;
 } // toLabel
 
 /// helpers

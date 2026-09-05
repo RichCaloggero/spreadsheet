@@ -64,6 +64,14 @@ getValue (label) {return this.labelToCell(label).textContent;}
 getFormula (label) {return this.labelToCell(label).dataset.formula;}
 getIsEditing (label) {return this.labelToCell(label).hasAttribute("data-editing");}
 
+has (label) {
+//console.log("has: ", label);
+if (not(label) || typeof(label) !== "string") return false;
+const [r,c] = parseLabel(label);
+return r < this.maxRowCount && c < this.maxColumnCount;
+} // has
+
+
 moveTo(label) {
     const oldCell = this.currentCell;
     const cell = this.labelToCell(label);
@@ -201,7 +209,7 @@ displayCellContents (data) {
 //console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula, error} = data;
 const cell = this.labelToCell(name);
-console.log("displayCellContents: ", cell, name, input, role, value, hasFormula, error, cell);
+console.log("displayCellContents: ", cell, name, input, role, value, hasFormula, error);
 
 if (input === null) {
 this.cleanupDeletedCell(name);
@@ -230,11 +238,12 @@ return data.error;
 } // #displayCellContents
 
 cleanupDeletedCell (label) {
-    const cell = this.labelToCell(label);
-    cell.removeAttribute("data-formula");
+const cell = this.labelToCell(label);
+cell.removeAttribute("data-formula");
 cell.ariaDescription = "";
 cell.removeAttribute("aria-invalid");
 cell.textContent = "";
+cell.removeAttribute("data-type");
 cell.innerHTML = "";
 if (cell.hasAttribute("data-in-range")) this.clearRange();
 } // cleanupDeletedCell
@@ -242,10 +251,12 @@ if (cell.hasAttribute("data-in-range")) this.clearRange();
 
 
 #announceCell (cell = this.currentCell) {
+setTimeout(() => {
 const label = this.cellToLabel(cell);
 const message =
 `${label}${cell.dataset.formula? ", has formula" : ""}${cell.hasAttribute("data-mark")? ", mark set" : ""}`;
 this.statusMessage(message);
+}, 0);
 } // announceCell
 
 cellToLabel (cell) {
