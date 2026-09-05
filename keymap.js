@@ -20,7 +20,7 @@ const modeTitles = {
 ["control+end", {help: "last cell in grid", command: c => c.moveToEndOfGrid()}],
 
 ["f2", {help: "edit current cell", command: c => c.startEditing()}],
-["delete", {help: "delete cell", command: c => c.delete()}],
+["delete", {help: "delete cell", command: c => c.deleteCells()}],
 
 ["control+z", {help: "undo", command: c => c.undo()}],
 ["control+shift+z", {help: "redo", command: c => c.redo()}],

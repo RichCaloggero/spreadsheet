@@ -1,0 +1,71 @@
+discuss the advantages and disadvantages of truncating decimal numbers to some large number of digits vs. using a decimal library?
+
+## First, a distinction that matters more than the choice itself
+
+There are really three options, not two, because "round at 15 digits" can happen at two different layers.
+
+You can round only at display time, which is what Excel does. The stored double stays `0.30000000000000004` and the cell shows `0.3`. Or you can round the value itself after every operation, so the number stored in the model actually becomes `0.3`. The difference is invisible in the grid and enormous in the logic, because only the second one makes `IF(A1+A2=0.3, ...)` behave the way a user expects. Display rounding hides the problem from the eye without fixing it, which is exactly why Excel users have been writing `=IF(ROUND(A1-A2,10)=0,...)` for thirty years.
+
+Also: round, don't truncate. Truncation is biased downward and turns `0.9999999999999999` into `0.999999999999` instead of `1`, so it manufactures a visible error out of a value that was already correct. And round to significant digits (`toPrecision(15)`), not decimal places, or you destroy very small numbers and do nothing for very large ones.
+
+## Floats with value-level snapping
+
+The implementation is `Number(x.toPrecision(15))` after each arithmetic operation. Doubles carry about 15.95 decimal digits, so snapping at 15 sits just inside the noise floor: it erases representation garbage without touching any digit the user could have legitimately entered.
+
+What you get is native speed, no dependency, every `Math.*` function available, primitives you can compare with `===` and use as array indices, and trivial CSV serialization. What you give up is exactness in principle. Snapping makes `0.1 + 0.2` equal `0.3`, but it does not make addition associative — summing a column forwards and backwards can still differ in the last digit before snapping, and occasionally that difference survives the snap. It also does not save you at the extremes: money values above about ten trillion, or a spreadsheet doing millions of chained operations, will drift out from under the 15-digit window. The `toPrecision` call is a string round-trip, so it is maybe 20 to 50 times slower than raw addition, though in a spreadsheet recalculating a few thousand dirty cells that is still microseconds of total work.
+
+## A decimal library
+
+`decimal.js` or `big.js` store numbers as decimal digit sequences. Addition, subtraction and multiplication of decimal inputs are then genuinely exact, not approximately exact, and terminating divisions are too. What you typed is what is stored, which means your CSV round-trips perfectly by construction rather than by argument. You also get real rounding modes, which matters if you ever want banker's rounding for financial work.
+
+The catch people underestimate is that exactness does not extend as far as it sounds. `1/3` does not terminate in decimal either, so you still configure a precision and still round; you have only moved the rounding into a base where it matches human intuition. And `sqrt`, `log`, `exp`, and trig are all approximations computed in software at your chosen precision, considerably slower than hardware, and `big.js` mostly does not have them at all.
+
+The real cost is pervasive, though, and it is ergonomic rather than numeric. Every number becomes an object. Comparisons become `a.cmp(b)`, sorting needs explicit comparators, you cannot use a value as an array index without unwrapping it, `JSON.stringify` needs handling, and the moment a raw JS number leaks in from a parser or a function implementation you get silent, subtle wrongness. Arithmetic is roughly 50 to 200 times slower, plus around 30 KB of bundle.
+
+## The screen reader angle
+
+This one is specific to your project and I think it tips the balance. A spurious `0.30000000000000004` is a mild visual annoyance for a sighted user, whose eye slides over the digit run. Read aloud, it is fifteen individually spoken zeros. That makes any place a raw value escapes your display formatter — an error message, a live region announcement, a CSV export, a tooltip, a debug panel — into an audio failure rather than a cosmetic one. Display-only rounding leaves a lot of such escape hatches. Fixing the value at the source closes all of them at once, which argues for either snapping or decimals over Excel's approach.
+
+## What I'd do
+
+Snap at 15 significant digits, value-level, using doubles. It buys you nearly all of the decimal library's practical benefit at nearly none of its cost, and it is about four lines of code.
+
+But route every arithmetic operation through a tiny numeric module from day one — `add`, `sub`, `mul`, `div`, `cmp`, `fromString`, `toString`, and nothing anywhere else touching `+` on cell values directly. Then swapping in `decimal.js` later is a single-file change instead of an archaeology project. That discipline costs you almost nothing now and is the thing you will regret not having.
+
+One saving detail for your file format: JavaScript's `Number.prototype.toString` is specified to produce the shortest string that round-trips exactly back to the same double. So writing raw values to the CSV with default stringification is lossless. Just never write the *display-formatted* value to disk — save raw, format only on the way to the screen.
+
+One question about decimal representation: if you keep real values and round only on display, you will run into the comparison issue you cited above. However, you could hide this in a isEqual() function that rounds each value before checking. Would this avoid the addition associativity issue you outlined above?
+
+## Partly — and the part it misses is the important one
+
+For the specific case you're describing, yes. If forward-summing a column gives `1.0000000000000002` and backward-summing gives `1.0`, a comparison that rounds both sides to 15 significant digits first will report them equal. As long as the accumulated drift stays below your tolerance, tolerant equality papers over it.
+
+But equality is not the only operation that cares, and it's not even the one that hurts most.
+
+## Cliff functions have no tolerance to give them
+
+`FLOOR`, `INT`, `TRUNC`, `MOD`, `CEILING`, and `ROUND` itself are discontinuous. A one-ulp error on the wrong side of an integer boundary doesn't produce a slightly wrong answer, it produces an answer off by a whole unit. `FLOOR(0.1 + 0.2, 0.1)` can hand you 0.2 instead of 0.3. `INT(2.9999999999999996)` is 2. There is no `isEqual()` in that expression to intercept anything — the error is inside a single function call on a single argument. Same for `<` and `>`: you can build a tolerant `isLess`, but then `a < b` and `a >= b` can both be false, and users write comparisons in formulas constantly.
+
+`MIN`, `MAX`, sorting, and lookup functions like VLOOKUP all inherit this. Snapping the value fixes all of them at once because the argument arriving at `FLOOR` is already clean. Tolerant comparison fixes exactly the operations you remembered to route through it.
+
+## Tolerant equality isn't transitive
+
+`a ≈ b` and `b ≈ c` does not imply `a ≈ c`. That's fine for a one-off `IF`, but it quietly breaks anything that groups, deduplicates, or uses values as lookup keys, because those all assume equality partitions values into buckets. With a tolerant compare, which bucket something lands in depends on the order you processed the data. This is a real class of bug and a miserable one to track down.
+
+## The values themselves stay dirty
+
+With display-only rounding, a cell holding `=A1-B1` where both display as `0.3` will hold `5.551115123125783e-17`. It displays as `0` — but it's the actual stored value. So it goes into the CSV. It goes into an error message. It goes into a live region announcement. It reaches any function that doesn't route through your formatter. For you specifically, that's fifteen spoken zeros followed by "e minus seventeen" appearing somewhere you didn't anticipate. Value-level snapping closes every one of those escape hatches with one decision; display rounding plus tolerant compare requires you to have correctly identified all of them in advance.
+
+It also breaks the property users implicitly rely on: that a column of displayed numbers sums to the displayed total. Excel actually ships a "Precision as displayed" option precisely because this complaint never goes away.
+
+## The one place snapping is genuinely worse
+
+Worth being straight about this. Snapping to 15 digits after each operation introduces its own rounding error, and that error is *larger* than a double's native error, since you're throwing away roughly the last digit of available precision every step. Over a chain of a million operations, unsnapped doubles are more accurate in absolute terms than snapped ones.
+
+Snapping isn't buying you accuracy. It's buying you the invariant that a value which is exactly representable as a 15-digit decimal stays exactly that value, so `0.1 + 0.2` gives you the same double you'd get from typing `0.3`. That's a WYSIWYG property, not a precision property. It happens to be the property spreadsheet users actually want.
+
+And neither approach survives truly long chains. At a million dependent operations the drift reaches the tenth or eleventh significant digit and rounding at fifteen saves nobody. That's the point where a decimal library is the only answer — which is the argument for keeping that numeric module swappable.
+
+## What I'd land on
+
+Do both, but snap. Snapping at the value level is the load-bearing fix because it protects the cliff functions and keeps the stored value equal to the spoken value. Keep a tolerant `compare()` in the numeric module anyway, using a *relative* epsilon rather than an absolute one so it behaves sensibly at both `1e-9` and `1e12`, and route the `=`, `<`, and `>` operators through it as a second line of defence for chains long enough to escape the snap window.

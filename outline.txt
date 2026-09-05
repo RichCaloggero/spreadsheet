@@ -1,0 +1,53 @@
+OK, so I'm still confused about the overall structure here. here's my current understanding:
+    
+
+
+
+// ui.js (orchestrator)
+// contains main() which creates instances of the view (grid)model (spreadsheet), and controller classes
+// also contains the save and load functions that are async functions
+function main (document) {
+
+} // main
+function load () {}
+function save () {}
+
+function statusMessage (text) {}
+
+// controller.js
+// const keymap = new Map(); // pointers to command functions
+
+/// commands
+function nextCellInRow (view) {view.nextCellInRow();}
+
+class Controller {
+#mark = null;
+#range = emptyRange();
+#view = null;
+
+constructor (view) {
+    // ...
+} // constructor
+
+} // class
+
+
+function keydownHandler (e, view) {...} 
+
+// view.js
+
+class View {
+// dom operations, public methods that commands call (like nextCellInRow(), and displayCell() to render cells and their contents
+} // class
+
+
+// model.js
+
+
+
+class Model {
+
+// unchanged from before
+
+} // class
+

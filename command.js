@@ -119,9 +119,7 @@ endEditing () {
 const result = this.#view.endEditing();
 if (not(result)) return;
 const {label, input, role} = result;
-
 if (not(label)) return;
-
 const changes = [];
 const labels = this.#mark? [...this.#getRange()] : [label];
 
@@ -131,26 +129,33 @@ changes.push({label, input, role, oldInput: oldData.input ?? null, oldRole: oldD
 this.#model.setInput(label, input, role);
 } // for
 
-this.#undoStack.push({cells: changes, type: labels.length > 1? "fill" : "edit", cursor: this.#view.cursor});
 this.#renderCells(this.#model.recalculate(labels));
+
+this.#undoStack.push({cells: changes, type: labels.length > 1? "fill" : "edit", cursor: this.#view.cursor});
+this.#redoStack = [];
+if (this.#mark) this.#clearRange();
 } // endEditing
 
-
-delete () {
+deleteCells () {
 const label = this.#view.cursor;
 const range = this.#getRange();
 //console.log("delete: ", range);
-const labels =  (range && range.has(label))?
-range : new Set([label]);
+const labels =  range? [...range] : [label];
+const changes = [];
 
 for (const label of labels) {
 //console.log("deleting: ", label);
-this.#renderCells(this.#model.deleteCell(label));
+const oldData = this.#model.cellContents(label);
+changes.push({label, input: null, oldInput: oldData.input ?? null, oldRole: oldData.role ?? ""});
+this.#model.deleteCell(label);
 this.#view.cleanupDeletedCell(label);
 } // for
 
+this.#renderCells(this.#model.recalculate(labels));
 if (this.#mark) this.#clearRange();
-this.#view.statusMessage(`${labels.size} cell${labels.size > 1? "s" : ""} deleted.`);
+this.#undoStack.push({cells: changes, type: "delete", cursor: this.#view.cursor});
+
+this.#view.statusMessage(`${labels.length} cell${labels.length> 1? "s" : ""} deleted.`);
 } // delete
 
 undo () {this.#replay();}

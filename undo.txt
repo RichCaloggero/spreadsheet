@@ -1,0 +1,217 @@
+22Trying to tackle undo...
+if the undo queue holds the args to setInput (name, input, role, range, oldInput), why bother with oldInput? if there are two entries like the above in the undo history and you want to undo the last, just run the previous one. hmm, but maybe the sequence should be:
+
+1. move back to first entry
+2. enter oldValue in the cell and rerun recalculate()
+3. rerun the first entry in the list as-is and recalculate
+
+I'm missing something..
+
+## Why the previous entry isn't enough
+
+Your queue is a chronological list of *all* edits, in any order across cells. Suppose:
+
+1. `a1 = 5`
+2. `b1 = 7`
+3. `a1 = 9`
+
+Undo. The last entry is `a1 = 9`, and the previous entry is `b1 = 7` â€” a different cell entirely. Re-running it does nothing useful; `a1` stays at 9.
+
+To find `a1`'s prior state you'd have to scan backwards through the whole queue looking for the most recent earlier entry with the same name. That works, but it's O(history) per undo, and it fails on the boundary case: if `a1` has never been set before, there's no earlier entry, and the correct undo is *deleting* `a1`, which no entry in the list represents.
+
+`oldInput` records that directly. It's the answer to "what was here before," including the empty case, without searching.
+
+## What undo actually is
+
+The framing that makes this click: an undo entry isn't "an edit," it's **a pair of states for a location.** `{name, oldInput, newInput}`. Undo applies `oldInput`; redo applies `newInput`. Both are just `#setInput` plus `#recalculate` â€” no replay, no scanning, no special sequencing.
+
+Your three-step sequence is trying to reconstruct that pair from the history. The pair is cheaper to record than to recover.
+
+## Two stacks, and the replay flag
+
+```
+undoStack: [{name, oldInput, newInput, oldRole, newRole}, ...]
+redoStack: []
+```
+
+Undo: pop from undoStack, `#setInput(name, oldInput, oldRole)`, `#recalculate([name])`, push the entry to redoStack. Redo: the mirror.
+
+The critical detail â€” and it's the same one that broke your earlier replay â€” is that `#setInput` currently pushes to the queue unconditionally. So undo would record its own undo, and you'd ping-pong forever. Either take a flag, or better: move the queue push *out* of `#setInput` and into `setCellContents`, which is the only entry point that represents a user action. Then `load`, undo, and redo all use `#setInput` directly and record nothing, structurally.
+
+And a new user edit must clear the redo stack. That's standard: once you diverge from the redone future, it's gone.
+
+## Capturing oldInput correctly
+
+Right now `oldInput` is a parameter passed in by Grid â€” which means Grid has to know the previous value, and if it's wrong or omitted, undo silently corrupts. Better for `setCellContents` to read it from the model itself before overwriting:
+
+```js
+const old = this.#cells.get(name);
+const oldInput = old ? old.input : null;
+```
+
+`null` (never existed) is meaningfully different from `""` (was explicitly cleared) â€” undoing to `null` should delete the cell, not store an empty one. Otherwise you leave a phantom record that `#topologicalSort` will happily include.
+
+Then drop `oldInput` from Grid's call entirely. One less thing the view has to get right.
+
+## Two more
+
+**Role changes need entries too.** Marking a row as headers is an undoable action, and it doesn't go through `setCellContents`. Either give it its own entry type or capture role in the same record.
+
+**Fills and deletes span many cells.** One `Ctrl+Z` should undo the whole fill, not one cell of fifty. So an entry needs to be a *list* of cell changes, not a single one â€” undo applies them all, then recalculates once with all names as seeds. That's also why `#recalculate` taking a set of seeds matters.
+
+Given that, `{cells: [{name, oldInput, newInput, oldRole, newRole}], label: "fill"}` is probably the shape to build now rather than retrofit. `label` gives you "undid fill" as an announcement, which is worth a lot when you can't see what changed.
+
+## On range: your first instinct is right, drop it
+
+A range passed alongside the formula creates a cell whose precedents aren't derivable from its own text. That breaks three things at once: saving (the JSON has `input` but not the range, so reload loses the edges), undo (the entry would have to carry it too), and readability (the formula doesn't say what it depends on).
+
+The formula text should be self-contained. `alt+=` already does this correctly by splicing labels into the text before it reaches the model. Anything that needs a range should go the same way.
+
+And it's currently dead anyway — `setCellContents` accepts `range` and passes it to `setInput`, but `#autofill` never passes one, and `endEditing` doesn't either. So removing the parameter costs you nothing today.
+
+## Undo
+
+The three-step sequence you sketched is trying to *recover* the prior state by scanning history. The pair `{oldInput, newInput}` records it, which is why `oldInput` earns its place: with `a1=5, b1=7, a1=9`, the previous queue entry is `b1`, an unrelated cell. And if `a1` had never been set, no earlier entry exists at all — the correct undo is deletion, which no forward entry can express.
+
+You've already got the capture right in `setCellContents`, using `null` to distinguish never-existed from cleared. Good. What's missing is that `undoEntry` is built and then discarded — nothing pushes it. Meanwhile `setInput` still pushes to `#replayQueue`, which means `load`, undo, and redo would all record themselves. Move the push up into `setCellContents` and delete it from `setInput`; that's what makes recording structurally impossible on the replay paths.
+
+Then undo is: pop, `setInput(name, oldInput, oldRole)` for each cell in the entry, `recalculate` with all their names, push to a redo stack. A new user edit clears redo.
+
+Since `#autofill` and `delete` both touch many cells, build the entry as `{cells: [...], label: "fill"}` now rather than retrofitting — and `label` gives you "undid fill of 12 cells" as an announcement.
+
+## Syntax error
+
+```js
+const undoEntry = {cells: [{name, input, role, oldInput, oldRole};
+```
+
+Missing `}]}`. And the next line opens with `` ` `` and closes with `"`.
+
+## Bugs in the code you sent
+
+**`#autofill` shadows and misuses `label`.** `for (label of range)` assigns to the parameter — and in a module that's a `ReferenceError` since `label` is a `const` binding from destructuring... actually it's a parameter, so it just silently clobbers. Either way, the last loop is worse:
+
+```js
+for (label of range) this.#renderCells([...range]);
+```
+
+That renders the entire range once per cell — n² renders. It should be a single `this.#renderCells(...)` on the result of `recalculate`, which is the authoritative changed set (the fill's dependents may be outside the range).
+
+**`#autofill` ignores `#fillFormula`.** It writes the same literal text into every cell, so filling a formula gives you identical formulas rather than relative ones. Presumably not yet wired up.
+
+**`#evaluate`'s precedent-error branch returns without setting `cell.value`.** So a cell whose precedent has an error keeps its previous value and looks fine. The `console.log` even prints `cell.value` before it's assigned. You need `cell.value = <the propagated error>` before returning — and propagating the *original* error is more useful than a generic one.
+
+**`recalculate`'s `skipDirtyComputation` is inverted in effect.** When true you use `names` as-is; `load` passes all names so that's right. But `#autofill` calls `recalculate([...range])` with the default, which does compute the dirty set — correct. Just note the flag name says "skip" while the common case is "don't skip"; `expandDirty = true` reads better.
+
+**`parseLabel` contract, again.** `setInput` does `if (result.error)` while `evaluateRefs` and `#evaluate` do `[row, column] = parseLabel(...)`. Those can't both be right.
+
+**`initialScope` returns 0-based row/col** (whatever `parseLabel` gives), so in `a1`, `_row` is 0. Then `toLabel(...)` in `evaluateRefs` presumably expects the same basis — consistent internally, but `ref(1,0)` meaning row 2 will confuse you later. Worth settling on 1-based for anything user-facing.
+
+**`_r`/`_c` and `_row`/`_col` are four names for two values.** Fine, but they're also four names `getSymbols` must exclude, and the exclusion list needs to match `initialScope` exactly or you get phantom precedents.
+
+so if fills must know something about undo, then setCellContents should have a fill parameter to tell the model that it should create a compound entry in the undo list? otherwise, how does it know ...
+what am I missing here...
+
+No parameter needed — the model shouldn't be inferring the grouping at all. The caller already knows.
+
+## Turn it around
+
+The problem is that `setCellContents` is both "change one cell" *and* "record one undo entry." Those are welded together, so any operation touching many cells either gets many entries or needs to tell the model it's special.
+
+Split them:
+
+- `setInput(name, input, role)` — change one cell. Records nothing.
+- `recalculate(names)` — evaluate. Records nothing.
+- `pushUndo(entry)` — record one undoable action.
+
+Now the controller composes them. A single edit does one `setInput`, one `recalculate`, one `pushUndo` with one cell in it. A fill does fifty `setInput`s, one `recalculate`, one `pushUndo` with fifty cells in it.
+
+Same primitives, different composition. Nothing tells the model what kind of operation is happening, because the model doesn't need to know — the *shape of the entry* carries that, and the caller builds it.
+
+`setCellContents` then becomes a convenience wrapper for the single-cell case, which is what it already effectively is.
+
+## Where the old values come from
+
+The one thing the controller can't easily do is capture `oldInput` — it would have to ask the model for each cell's current state before overwriting.
+
+Simplest fix: have `setInput` *return* the old input and role alongside the cell. Then the controller accumulates them as it goes:
+
+```js
+const changes = [];
+for (const label of range) {
+  changes.push(this.#model.setInput(label, text, role));
+}
+this.#model.pushUndo({cells: changes, label: "fill"});
+this.#renderCells(this.#model.recalculate([...range]));
+```
+
+`setInput` gives back what it replaced; the controller decides what constitutes one undoable action.
+
+## The nagging question
+
+Where should the undo stack live — model or controller? Both are defensible.
+
+In the **model** it survives naturally alongside `#cells`, and undo can call `setInput` directly. But then the model owns something that's arguably a UI concept.
+
+In the **controller** it's clearly a session concept, and it can hold non-model actions too. Which matters more than it sounds: marking a row as headers, and possibly cursor position restoration, aren't cell edits. If undo lives in the model, those either can't be undone or need a parallel mechanism.
+
+I'd put it in the controller for that reason. The model exposes `setInput` and `recalculate` and stays a pure calculation engine; the controller owns "what the user did."
+
+## The thing that makes undo feel right
+
+Restore the cursor and the mark. Undoing a fill should put you back where the fill started, not leave you wherever you happened to wander. Store the cursor position in the entry and have the controller restore it — trivial to add now, and without it undo is disorienting since nothing tells you what changed or where.
+
+Pair that with the announcement: "undid fill, 12 cells, cursor at b5."
+
+bug that doesn't make sense... for some reason, a simple command function in the controller is never called from the keymap. here are both command.js and keymap.js; when I execute control+shift+z (redo), I hit the debugger statement in the keymap just fine, but when I continue the debugger statement at the top of Controller.redo is never hit!
+
+You have **two** `redo()` methods on the class. The second one wins.
+
+```js
+redo () {
+  console.log("redo...");
+  this.#replay(true);
+} // redo
+
+#replay (redo = false) { ... }
+
+redo () {
+
+} // #redo
+```
+
+Class bodies are evaluated top to bottom, so the empty `redo` at the bottom overwrites the working one. `c.redo` in the keymap is a real function — that's why the debugger reaches it and why `console.log("keymap: ", c, c.redo)` shows something plausible — but the body is empty, so nothing happens and no breakpoint inside `#replay` is hit.
+
+Delete the empty one. That's the whole bug.
+
+The `// #redo` comment on it suggests it was meant to be private and became a duplicate when the logic moved into `#replay`. Worth grepping for other stragglers — `createUndoEntry` at the bottom of the file is also dead now, and `displayHelpDialog` exists both as a method and as a loose function.
+
+## While I'm here
+
+**`delete()` still pushes no undo entry.** Deleting a range is unrecoverable. Same shape as `endEditing`: capture `oldInput`/`oldRole` per cell, push one entry with `type: "delete"` and `cursor`.
+
+It also calls `#renderCells(this.#model.deleteCell(label))` inside the loop, so each deletion runs its own recalculation. Same fix as elsewhere: a `removeCell` that doesn't recalculate, then one `recalculate` over all the labels afterwards.
+
+**Role changes push no undo entry either**, and `setColumnHeaders`/`setRowHeaders` go straight to the view — so the model's `role` never updates and the change won't survive a save.
+
+**`endEditing` doesn't clear `#redoStack`.** Any edit after an undo leaves stale redo entries that will replay into a diverged state.
+
+**`endEditing` doesn't clear the mark after a fill.** The next edit will fill the same range again.
+
+**`#replay` uses `input === null` strictly.** `endEditing` records `oldData.input ?? null`, which is correct — but confirm `cellContents` returns `undefined` rather than `""` for a missing cell, or the coalesce won't fire and undo won't delete.
+
+**`execute` catches every error and shows it via `statusMessage`.** That's why this bug was silent-ish; a genuine exception in a command becomes a status message rather than a stack trace. The `console.log(e)` helps, but consider `console.error` so you get the stack.
+
+outch, that's embarassing! thank you!!!
+
+Not embarrassing at all — JS silently allowing duplicate method names is a genuine language wart. No error, no warning, and the *earlier* definition is the one that vanishes, which is backwards from what intuition suggests. Every JS developer has lost time to this at least once.
+
+And your instinct was actually sound: you checked that `c.redo` existed and was a function before suspecting the keymap wiring. It was. The problem was that identity and behaviour had come apart, which isn't something a reasonable first hypothesis covers.
+
+A couple of things that would have caught it faster, worth having in the toolkit:
+
+`console.log(c.redo.toString())` prints the actual source of the bound function. When something is called but does nothing, that tells you immediately whether you're looking at the code you think you are. It's a good habit generally — it doesn't depend on stepping through anything.
+
+A linter would flag this one directly (`no-dupe-class-members` is on by default in ESLint's recommended set). You've avoided a build step deliberately, and rightly, but a linter isn't a build step — it just reads files and reports. Given how much of your debugging is by ear, having a tool that reads out "duplicate class member: redo, line 312" is worth a lot. It'd also catch the undeclared variables and the shadowed parameters that have come up a few times.
+
+Anyway — undo and redo are working now, which was the big remaining piece. The delete-and-role-change undo entries are the last gap before the whole thing is genuinely coherent.
