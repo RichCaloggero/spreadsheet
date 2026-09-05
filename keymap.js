@@ -22,6 +22,9 @@ const modeTitles = {
 ["f2", {help: "edit current cell", command: c => c.startEditing()}],
 ["delete", {help: "delete cell", command: c => c.delete()}],
 
+["control+z", {help: "undo", command: c => c.undo()}],
+["control+shift+z", {help: "redo", command: c => c.redo()}],
+
 ["control+space", {help: "begin / end marking range", command: c => c.setMark()}],
 ["escape", {help: "cancel range definition or remove already defined range", command: c => c.cancelRange()}],
 

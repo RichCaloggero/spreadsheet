@@ -1,4 +1,4 @@
-import { not, getSymbols, isFormula } from "./utilities.js";
+import { not, isFormula } from "./utilities.js";
 import { parseLabel, formatLabel, toLabel } from "./coordinates.js";
 
 class CellError {
@@ -37,12 +37,11 @@ export class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
 #dependents = new Map();
-#replayQueue = [];
 
 constructor () {
 } // constructor
 
-//setInput (...args) {return this.setInput(...args);}
+has (name) {return this.#cells.has(name);}
 get allNames () {return [...this.#cells.keys()];}
 
 get allCells () {
@@ -50,9 +49,8 @@ return [...this.#cells.keys()];
 } // allCells
 
 cellContents (name) {
-  console.log("cellContent: ", name);
-  const cell = this.#cells.get(name);
-  if (not(cell)) return {name, role: ""};
+  const cell = name? this.#cells.get(name) : null;
+  if (not(cell)) return {name, input: null, role: ""};
 
   const value = cell.value;
   const failed = value instanceof CellError;
@@ -79,7 +77,7 @@ for (const data of entries) {
 	const cell = this.setInput(data.name, data.input, data.role);
 } // for
 
-this.recalculate([...this.#cells.keys()], true);
+this.recalculate([...this.#cells.keys()], false);
 } // load
 
 getData () {
@@ -103,23 +101,25 @@ this.#cells.get(name).role = role;
 } // setRole
 
 
-setCellContents (name, input, role, range, oldInput) {
-//console.log(`setCellContents: ${name}, ${input}, ${role}:\n`);
+setCellContents (name, input, role) {
 if (not(name)) {
 throw new Error("setCellContents: cell label missing or invalid.");
 } // if
 
-const cell = this.setInput(name, input, role, range, oldInput);
+const old = this.#cells.get(name);
+const oldInput = old? old.input : null;
+const oldRole = old? old.role : null;
+
+
+const cell = this.setInput(name, input, role);
 //console.log("setInput: ", cell);
 
 return this.recalculate([name]);
 } // setCellContents
 
-setInput (name, input, role = "gridcell", range = new Set([]), oldInput = "") {
+setInput (name, input, role = "") {
 input = input.toString().trim();
-oldInput = oldInput.toString().trim();
-this.#replayQueue.push ({name, input, oldInput});
-//console.log("setInput: ", name, input, role, range, oldInput);
+//console.log("setInput: ", name, input, role);
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
@@ -156,8 +156,7 @@ return cell;
 
 //console.log("setInput: formula ", cell.code);
 
-// ranges are part of the precedents set of this cell, inputs to the formula
-for (const symbolName of getSymbols(cell.formula).concat([...range])) {
+for (const symbolName of getSymbols(cell.formula)) {
 const result = parseLabel(symbolName);
 if (result.error) {
 cell.value = new CellError("parse", `bad cell label: ${symbolName}`);
@@ -177,10 +176,10 @@ cell.value = (input !== "" && not(Number.isNaN(n))) ? n : input;
 return cell;
 } // setInput
 
-recalculate (names, skipDirtyComputation = false) {
+recalculate (names, expandDirty = true) {
 // find dirty cells
-const dirty = skipDirtyComputation? new Set(names)
-: this.#computeDirtySet(names);
+const dirty = expandDirty? 
+this.#computeDirtySet(names) : new Set(names);
 //console.log("dirty: ", dirty);
 
 const {order: sorted, cycles} = this.#topologicalSort(dirty);
@@ -250,11 +249,12 @@ if (not(cell)) return;
 if (cell.hasFormula) {
 for (const name of this.#precedentsOf(cell.name)) {
 //console.log("- examine precedent ", name);
-	const value = this.#cells.has(name)? this.#cells.get(name).value : "";
+const value = this.#cells.has(name)? this.#cells.get(name).value : "";
 	if (value instanceof CellError) {
-	console.log("precedence has error: ", cell.value);
-	return;
-	} // if
+cell.value = value;
+console.log("precedence has error: ", cell.value);
+return;
+} // if
 } // for
 
 	const scope = this.#createScope(this.#precedentsOf(cell.name), ...parseLabel(cell.name));
@@ -327,7 +327,7 @@ if (not(this.#cells.has(name))) return;
 this.#cleanupDependencies(name);
 this.#cells.delete(name);
 
-return this.recalculate([name]);
+//return this.recalculate([name]);
 } // #deleteCell
 
 has (name) {return this.#cells.has(name);}
@@ -409,3 +409,26 @@ return new Map([
 ["_col", column]
 ]);
 } // initialScope
+
+// getSymbols excludes function symbol nodes and math.js range nodes, and all symbols defined by initialScope()
+function getSymbols (node) {
+return node
+.filter((node, path, parent) => node.type === "SymbolNode" && not(initialScope.has(node.name)) && path !== "fn" && parent?.type !== "RangeNode")
+.map(node => node.name.trim());
+} // getSymbols
+
+function getFunctions (node) {
+return node.filter(node => node.isfunctionNode);
+} // getFunctions
+
+
+function replaceSymbols (node, newSymbols) {
+return node.transform(function (node, path, parent) {
+if (node.isSymbolNode ) {
+return new math.SymbolNode(newSymbols.has(node.name)? newSymbols.get(node.name) : node.name);
+} else {
+return node
+} // if
+}); // transform
+} // replaceSymbols
+

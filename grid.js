@@ -201,7 +201,13 @@ displayCellContents (data) {
 //console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula, error} = data;
 const cell = this.labelToCell(name);
-//console.log("displayCellContents: ", name, input, role, value, hasFormula, error, cell);
+console.log("displayCellContents: ", cell, name, input, role, value, hasFormula, error, cell);
+
+if (input === null) {
+this.cleanupDeletedCell(name);
+return false;
+} // if
+
 
 cell.textContent = value;
 cell.role = role;
@@ -230,7 +236,7 @@ cell.ariaDescription = "";
 cell.removeAttribute("aria-invalid");
 cell.textContent = "";
 cell.innerHTML = "";
-this.clearRange();
+if (cell.hasAttribute("data-in-range")) this.clearRange();
 } // cleanupDeletedCell
 
 
