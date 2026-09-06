@@ -1,5 +1,5 @@
 import { not, isFormula } from "./utilities.js";
-import { parseLabel, formatLabel, toLabel } from "./coordinates.js";
+import { parseLabel, toLabel } from "./coordinates.js";
 
 class CellError {
 static #codes = new Map([

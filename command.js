@@ -71,14 +71,14 @@ view.statusMessage(e);
 } // save
 
 moveBy (dRow, dCol) {
-//console.log("moveBy: ", dRow, dCol);
+console.log("moveBy: ", dRow, dCol);
 const [row, col] = parseLabel(this.#view.cursor);
-//console.log("- cursor: ", row, col);
+console.log("- cursor: ", row, col);
 return this.#moveTo(toLabel(row + dRow, col + dCol));
 } // moveBy
 
 #moveTo (label) {
-//console.log("moveTo: ", label, this.#view.has(label));
+console.log("moveTo: ", label, this.#view.has(label));
 if (not(this.#view.has(label))) return false;   // off-grid, stay put
 this.#view.moveTo(label);
 if (this.#mark) {
@@ -328,6 +328,3 @@ const x2 = parseLabel(l2)[coordinate];
 return x1 < x2? [l1,l2] : [l2,l1];
 } // rangeOrder
 
-function createUndoEntry (name, oldInput, newInput, oldRole, newRole) {
-return {name, oldInput, newInput, oldRole, newRole};
-} // undoEntry

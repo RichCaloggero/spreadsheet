@@ -1,5 +1,5 @@
 import { not, isFunction } from "./utilities.js";
-import { toLabel, parseLabel, formatLabel } from "./coordinates.js";
+import { toLabel, parseLabel } from "./coordinates.js";
 
 const requireGridcellRole = false;
 const useAriaNotify = false;
@@ -20,10 +20,10 @@ if (not(document instanceof HTMLDocument)) throw new Error("first argument to Gr
 
 const grid = this.#grid = document.createElement("table");
 
-for (let i=0; i<nRows; i++) {
+for (let i=1; i <= nRows; i++) {
 const row = document.createElement("tr");
 
-for (let j=0; j<nColumns; j++) {
+for (let j=1; j <= nColumns; j++) {
 const cell = document.createElement("td");
 cell.dataset.label = toLabel(i, j);
 if (requireGridcellRole) cell.role = "gridcell";
@@ -68,12 +68,13 @@ has (label) {
 //console.log("has: ", label);
 if (not(label) || typeof(label) !== "string") return false;
 const [r,c] = parseLabel(label);
-return r < this.maxRowCount && c < this.maxColumnCount;
+return r > 0 && r <= this.maxRowCount && c > 0 && c <= this.maxColumnCount;
 } // has
 
 
 moveTo(label) {
-    const oldCell = this.currentCell;
+    console.log("Grid.moveTo: ", label);
+const oldCell = this.currentCell;
     const cell = this.labelToCell(label);
 
     if (cell && cell !== oldCell) {

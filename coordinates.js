@@ -6,50 +6,22 @@ Labels are cell coordinates in excel notation (a1 is column 0, row 0).
 
 const columnLabels = "abcdefghijklmnopqrstuvwxyz";
 
-export function parseLabel (label, maxRowCount, maxColumnCount) {
-if (not(label) || not(label instanceof String || typeof(label) === "string") || label.length < 2)
-	return {error: true, message: `label must be a string containing at least two characters: ${label}`};
-
+export function parseLabel (label) {
 label = label.trim().toLowerCase();
 const result = label.match(/^([a-z]+)([0-9]+)$/);
 //console.log("- result: ", result);
 
-if (not(result))
-return {error: true, message: `labels must be of the form a single letter, followed by any number of decimal digits (i.e. a1, z99: ${label}`};
-
 const c = result[1];
 const r = result[2];
-if (c.length > 1) 
-return {error: true, message: `only single alphabetics can occur before the digits (i.e. a1, c99, but not ab22): ${label}`};
 
 
-const column = columnLabels.indexOf(c);
-const row = Number(r) - 1;
-
-if (row >= maxRowCount)
-return {error: true, message: `row index cannot be greater than ${maxRowCount}: ${row}`};
-
+const column = columnLabels.indexOf(c)+1;
+const row = Number(r);
 return [row, column];
 } // parseLabel
 
-export function formatLabel (row, column, maxRowCount, maxColumnCount) {
-if (isValidRowNumber(row) &&isValidColumnNumber(column)) {
-if (column >= maxColumnCount) throw new Error("column labels are limited to single alphabetic characters, i.e. max number of columns is 26.");
-if (row >= maxRowCount) throw new Error(`row count limited to ${maxRowCount}`);
-return toLabel(row, column);
-} else {
-throw new Error(`bad coordinates: ${row},${column}; both must be parsable as positive integers.`);
-} // if
-} // formatLabel
-
-
 export function toLabel (row, column) {
-const r = row < 0? 0 : row;
-const c = column < 0? 0 : column;
-return `${columnLabels.charAt(c)}${r+1}`;
+const r = row < 1? 1 : row;
+const c = column < 1? 1 : column;
+return `${columnLabels.charAt(c-1)}${r}`;
 } // toLabel
-
-/// helpers
-
-function isValidRowNumber (n) {return Number.isInteger(n) && n >= 0;}
-function isValidColumnNumber (n) {return Number.isInteger(n) && n >= 0;}
