@@ -1,8 +1,57 @@
+import { not } from "./utilities.js";
+
 const modeTitles = {
   "nav": "Navigation Commands",
   "edit": "Editing Commands",
   "any": "Commands available in either mode"
 };
+
+export class Key {
+#separator = "+";
+#keyNameMap = new Map([
+["ctrlKey", "control"],
+["altKey", "alt"],
+["shiftKey", "shift"],
+["metaKey", "meta"]
+]); // map
+
+#modifierNames = [];
+
+	constructor (e) {
+	this.#modifierNames = [...invertMap(this.#keyNameMap).keys()];
+this.event = e;
+this.key = this.eventToKey(e);
+} // constructor
+
+toString () {return this.key.join(this.#separator);}
+
+eventToKey (e, ignoreUnadornedModifier = true) {
+if (ignoreUnadornedModifier && this.#modifierNames.includes(e.key.toLowerCase())) return [];
+
+const map = invertMap(this.#keyNameMap);
+const key = this.#modifierNames.map(modifier => e[map.get(modifier)]? modifier : null)
+.filter(modifier => modifier);
+
+if (e.key === " ") key.push("space");
+else if (e.key.length > 1) key.push(e.key.slice(0,1).toLowerCase() + e.key.slice(1));
+else key.push(e.key.toLowerCase());
+
+return key;
+} // eventToKey
+} // class Key
+
+
+function invertMap (map) {
+return new Map(
+[...map.entries()].map(x => [x[1],x[0]])
+); // new Map
+} // invertMap
+
+/// tests
+
+console.assert(new Key({ctrlKey:true, shiftKey:true, key: " "}).toString() === new Key({ctrlKey:true,  key: " ", shiftKey:true}).toString());
+console.assert(new Key({altKey: true, shiftKey:true, key: " "}).toString() !== new Key({ctrlKey:true,  key: " ", shiftKey:true}).toString());
+
 
   export const keymap = new Map([
 ["nav", new Map([
@@ -31,8 +80,8 @@ const modeTitles = {
 ["control+alt+shift+r", {help: "all cells in row become column header cells", command: c => c.setColumnHeaders()}],
 ["control+alt+shift+c", {help: "all cells in column become row header cells", command: c => c.setRowHeaders()}],
 
-["control+s", {help: "save", command: c => c.save()}],
 ["control+o", {help: "open", command: c => c.load()}],
+["control+s", {help: "save", command: c => c.save()}],
 
 ["alt+=", {help: "autosum over defined range, if any", command: c => c.autoSum()}],
 ])],
@@ -41,12 +90,22 @@ const modeTitles = {
 ["escape", {help: "cancel editing", command: c => c.cancelEditing()}],
 ])],
 ["any", new Map([
+["control+o", {command: c => false}],
+["control+s", {command: c => false}],
 ["f1", {help: "display keyboard help", command: c => c.displayHelpDialog()}]
-  ])]
+  
+])]
 ]); // keymap
 
 export function lookup (mode, key) {
-return keymap.get(mode)?.get      (key) ?? keymap.get("any")?.get(key);
+const any = keymap.get("any");
+const map = keymap.has(mode)? keymap.get(mode) : any;
+
+const entry = map.has(key)? map.get(key)
+: any.has(key)? any.get(key)
+: null;
+
+return entry;
 } // lookup
 
 export function generateKeyboardHelp () {
@@ -58,7 +117,9 @@ export function generateKeyboardHelp () {
   
 function generateTable (keymap) {
     return `<table>
-${[...keymap.entries()].map(entry => {
+${[...keymap.entries()]
+.filter(entry => entry[1].help)
+.map(entry => {
 const [key, data] = entry;
 return `<tr>
 <th>${data.help}</th>

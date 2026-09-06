@@ -73,14 +73,14 @@ return r > 0 && r <= this.maxRowCount && c > 0 && c <= this.maxColumnCount;
 
 
 moveTo(label) {
-    console.log("Grid.moveTo: ", label);
+//console.log("Grid.moveTo: ", label);
 const oldCell = this.currentCell;
-    const cell = this.labelToCell(label);
+const cell = this.labelToCell(label);
 
-    if (cell && cell !== oldCell) {
-        this.#setCurrentCell(cell);
-                this.#announceCell(cell);
-                    return true;
+if (cell && cell !== oldCell) {
+this.#setCurrentCell(cell);
+	this.#announceCell(cell);
+	    return true;
 } // if
 
 return false;
@@ -100,14 +100,16 @@ lastLabelInGrid (label) {return this.cellToLabel(this.#lastCellInGrid(this.label
 #firstCellInGrid (cell) {return cell.parentElement.parentElement.firstElementChild.firstElementChild;}
 #lastCellInGrid (cell) {return cell.parentElement.parentElement.lastElementChild.lastElementChild;}
 
-    bind(type, handler) {
-    this.#grid.addEventListener(type, handler);
+bind(type, handler) {
+this.#grid.addEventListener(type, handler);
 } // bind
 
 
 
 clear () {
+if (this.isEditing) this.cancelEditing();
 for (const cell of this.#grid.querySelectorAll("td")) {
+cell.textContent = "";
 cell.removeAttribute("data-cursor");
 cell.removeAttribute("data-editing");
 cell.removeAttribute("data-formula");
@@ -122,7 +124,7 @@ cell.ariaDescription = "";
 } // clear
 
 setMark () {
-    this.clearMark();
+this.clearMark();
 this.currentCell.setAttribute("data-mark", true);
 } // setMark
 
@@ -132,17 +134,17 @@ this.#grid.querySelector("[data-mark]")?.removeAttribute("data-mark");
 
 
 #setCurrentCell (cell) {
-  if (not(cell)) return;
+if (not(cell)) return;
 
-  const previous = this.#grid.querySelector("td[data-cursor]");
-  if (previous === cell) return;
-  if (previous) previous.removeAttribute("data-cursor");
+const previous = this.#grid.querySelector("td[data-cursor]");
+if (previous === cell) return;
+if (previous) previous.removeAttribute("data-cursor");
 
-  cell.setAttribute("data-cursor", true);
-  this.#grid.ariaActiveDescendantElement = cell;
+cell.setAttribute("data-cursor", true);
+this.#grid.ariaActiveDescendantElement = cell;
 
-  cell.scrollIntoView({block: "nearest", inline: "nearest"});
-  this.#generateDescription(cell);
+cell.scrollIntoView({block: "nearest", inline: "nearest"});
+this.#generateDescription(cell);
 } // setCurrentCell
 
 
@@ -184,8 +186,8 @@ return text;
 } // #getValueFromInput
 
 cancelEditing () {
-    const cell = this.currentCell;
-    this.#getValueFromInput(cell);
+const cell = this.currentCell;
+this.#getValueFromInput(cell);
 cell.removeAttribute("data-editing");
 this.#announceCell();
 this.focus();
@@ -210,7 +212,7 @@ displayCellContents (data) {
 //console.log("displayCellContents: ", data);
 const {name, value, role, input, hasFormula, error} = data;
 const cell = this.labelToCell(name);
-console.log("displayCellContents: ", cell, name, input, role, value, hasFormula, error);
+//console.log("displayCellContents: ", cell, name, input, role, value, hasFormula, error);
 
 if (input === null) {
 this.cleanupDeletedCell(name);
@@ -233,7 +235,7 @@ if (hasFormula && input.length > 0) cell.setAttribute("data-formula", input);
 else cell.removeAttribute("data-formula");
 
 typeof(value) === "number"? cell.setAttribute("data-type", "number")
- : cell.removeAttribute("data-type");
+: cell.removeAttribute("data-type");
 
 return data.error;
 } // #displayCellContents
@@ -275,9 +277,9 @@ markColumnAsRowHeaders (cell = this.currentCell) {
 if (this.#isFirstCell(cell))    cell = cell.parentElement.parentElement.children[1].firstElementChild;
 let role = cell.role;
 if (requireGridcellRole) {
-    role = role === "gridcell"? "rowheader" : "gridcell";
+role = role === "gridcell"? "rowheader" : "gridcell";
 } else {
-    role = role === "rowheader"? "" : "rowheader";
+role = role === "rowheader"? "" : "rowheader";
 } // if
 
 getColumn(cell).forEach(cell => cell.role = role);
@@ -288,7 +290,7 @@ markRowAsColumnHeaders (cell = this.currentCell) {
 if (this.#isFirstCell(cell)) cell = cell.nextElementSibling;
 let role = cell.role;
 if (requireGridcellRole) {
-    role = role === "gridcell"? "columnheader" : "gridcell";
+role = role === "gridcell"? "columnheader" : "gridcell";
 } else {
 role = role === "columnheader"? "" : "columnheader";
 } // if
@@ -303,31 +305,31 @@ setGridCell (label) {this.labelToCell(label).role = requireGridcellRole? "gridce
 
 markRange (labels) {
 for (const label of labels) {
-    this.labelToCell(label).setAttribute("data-in-range", true);
+this.labelToCell(label).setAttribute("data-in-range", true);
 } // for
 
 this.statusMessage(`${labels.size} items in range.`);
 } // mmarkRange
 
 clearRange () {
-    this.#grid.querySelectorAll("td[data-in-range], td[data-mark]").forEach(x => {
-        x.removeAttribute("data-in-range");
-    x.removeAttribute("data-mark");
+this.#grid.querySelectorAll("td[data-in-range], td[data-mark]").forEach(x => {
+x.removeAttribute("data-in-range");
+x.removeAttribute("data-mark");
 });
 } // clearRange
 
 get row () {
-    return new Set(
-        getRow(this.currentCell)
-        .map(cell => cellToLabel(cell))
-    ); // new Set
+return new Set(
+getRow(this.currentCell)
+.map(cell => cellToLabel(cell))
+); // new Set
 } // get row
 
 get column () {
-    return new Set(
-        getColumn(this.currentCell)
-        .map(cell => cellToLabel(cell))
-    ); // new Set
+return new Set(
+getColumn(this.currentCell)
+.map(cell => cellToLabel(cell))
+); // new Set
 } // get column
 
 statusMessage (text, remove = false) {
