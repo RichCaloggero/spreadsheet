@@ -1,7 +1,7 @@
 import { not, isFunction } from "./utilities.js";
 import { toLabel, parseLabel } from "./coordinates.js";
 
-const requireGridcellRole = false;
+export const requireGridcellRole= false;
 const useAriaNotify = false;
 
 export class Grid {
@@ -52,6 +52,20 @@ get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 get cursor () {  return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
 set cursor (label) {this.#grid.activeDescendantElement = this.labelToCell(label);}
+
+get row () {
+return new Set(
+getRow(this.currentCell)
+.map(cell => this.cellToLabel(cell))
+); // new Set
+} // get row
+
+get column () {
+return new Set(
+getColumn(this.currentCell)
+.map(cell => this.cellToLabel(cell))
+); // new Set
+} // get column
 
 get maxRowCount () {return this.#maxRowCount;}
 get maxColumnCount () {return this.#maxColumnCount;}
@@ -241,6 +255,7 @@ return data.error;
 } // #displayCellContents
 
 cleanupDeletedCell (label) {
+//console.log("cleanupDeletedCell: ", label);
 const cell = this.labelToCell(label);
 cell.removeAttribute("data-formula");
 cell.ariaDescription = "";
@@ -249,6 +264,8 @@ cell.textContent = "";
 cell.removeAttribute("data-type");
 cell.innerHTML = "";
 if (cell.hasAttribute("data-in-range")) this.clearRange();
+cell.role = requireGridcellRole? "gridcell" : "";
+return;
 } // cleanupDeletedCell
 
 
@@ -273,37 +290,12 @@ return this.#grid.querySelector(`td[data-label="${label}"]`);
 #isFirstCell (cell) {   return cell === this.#grid.querySelector("td");}
 
 
-markColumnAsRowHeaders (cell = this.currentCell) {
-if (this.#isFirstCell(cell))    cell = cell.parentElement.parentElement.children[1].firstElementChild;
-let role = cell.role;
-if (requireGridcellRole) {
-role = role === "gridcell"? "rowheader" : "gridcell";
-} else {
-role = role === "rowheader"? "" : "rowheader";
-} // if
-
-getColumn(cell).forEach(cell => cell.role = role);
-this.setGridCell("a1"); // always neither row or column header
-} // #markColumnAsRowHeaders
-
-markRowAsColumnHeaders (cell = this.currentCell) {
-if (this.#isFirstCell(cell)) cell = cell.nextElementSibling;
-let role = cell.role;
-if (requireGridcellRole) {
-role = role === "gridcell"? "columnheader" : "gridcell";
-} else {
-role = role === "columnheader"? "" : "columnheader";
-} // if
-
-getRow(cell).forEach(cell => cell.role = role);
-this.setGridCell("a1"); // always neither row or column header
-} // #markRowAsColumnHeaders
 
 setRowHeader (label) {this.labelToCell(label).role = "rowheader";}
 setColumnHeader (label) {this.labelToCell(label).role = "columnheader";}
 setGridCell (label) {this.labelToCell(label).role = requireGridcellRole? "gridcell" : ""}
 
-markRange (labels) {
+markRange (labels = []) {
 for (const label of labels) {
 this.labelToCell(label).setAttribute("data-in-range", true);
 } // for
@@ -317,20 +309,6 @@ x.removeAttribute("data-in-range");
 x.removeAttribute("data-mark");
 });
 } // clearRange
-
-get row () {
-return new Set(
-getRow(this.currentCell)
-.map(cell => cellToLabel(cell))
-); // new Set
-} // get row
-
-get column () {
-return new Set(
-getColumn(this.currentCell)
-.map(cell => cellToLabel(cell))
-); // new Set
-} // get column
 
 statusMessage (text, remove = false) {
 setTimeout(() => {

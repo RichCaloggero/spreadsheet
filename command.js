@@ -1,6 +1,7 @@
 import { Key, keymap, lookup } from "./keymap.js";
 import { parseLabel, toLabel } from "./coordinates.js";
 import { not, isNumeric } from "./utilities.js";
+import { requireGridcellRole } from "./grid.js";
 
 export class Controller {
 #mark = null;
@@ -163,7 +164,7 @@ redo () {this.#replay(true);}
 
 #replay (redo = false) {
 //console.log("replay: ", redo, this.#undoStack.length, this.#redoStack.length);
-if (not(redo) && this.#undoStack.length === 0
+if (    not(redo) && this.#undoStack.length === 0
 || redo && this.#redoStack.length === 0) return;
 const data = (redo? this.#redoStack : this.#undoStack)
 .pop();
@@ -204,7 +205,7 @@ try {
 //console.log("- entry.command: ", entry.command);
 entry.command(this);
 } catch (e) {
-console.log(e);
+//console.log(e);
 this.#view.statusMessage(e);
 } // try
 
@@ -219,8 +220,46 @@ if (mc === cc) return new Set (columnSegment(mr, cr, mc));
 return null;              // off-axis
 } // #getRange
 
-setColumnHeaders () {this.#view.markRowAsColumnHeaders();}
-setRowHeaders () {this.#view.markColumnAsRowHeaders();}
+setColumnHeaders () {
+const labels= [...this.#view.row];
+//console.log("setColumnHeaders: ", labels.length);
+const changes = [];
+let role = this.#model.cellContents(labels[1]).role;
+//console.log("- model's role: ", role);
+role = role === "columnheader"? "gridcell" : "columnheader";
+if (role === "gridcell" && not(requireGridcellRole )) role = "";
+//console.log("- role: ", role);
+
+for (const label of labels) {
+if (label === "a1") continue;
+const oldData = this.#model.cellContents(label);
+const input = oldData.input ?? null;
+changes.push({label, input, role, oldInput: input, oldRole: oldData.role});
+this.#model.setInput(label, input, role);
+} // for
+
+this.#renderCells(labels);
+this.#undoStack.push({cells: changes, type: "toggle column headers", cursor: null});
+} // setColumnHeaders
+
+setRowHeaders () {
+const labels = [...this.#view.column];
+const changes = [];
+let role = this.#model.cellContents(labels[1]).role;
+role = role === "rowheader"? "gridcell" : "rowheader";
+if (role === "gridcell" && not(requireGridcellRole )) role = "";
+
+for (const label of labels) {
+if (label === "a1") continue;
+const oldData = this.#model.cellContents(label);
+const input = oldData.input ?? null;
+changes.push({label, input, role, oldInput: input, oldRole: oldData.role});
+this.#model.setInput(label, input, role);
+} // for
+
+this.#renderCells(labels);
+this.#undoStack.push({cells: changes, type: "toggle row headers", cursor: null});
+} // setRowHeaders
 
 #clearRange () {
 this.#mark = null;

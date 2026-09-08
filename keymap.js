@@ -77,8 +77,8 @@ console.assert(new Key({altKey: true, shiftKey:true, key: " "}).toString() !== n
 ["control+space", {help: "begin / end marking range", command: c => c.setMark()}],
 ["escape", {help: "cancel range definition or remove already defined range", command: c => c.cancelRange()}],
 
-["control+alt+shift+r", {help: "all cells in row become column header cells", command: c => c.setColumnHeaders()}],
-["control+alt+shift+c", {help: "all cells in column become row header cells", command: c => c.setRowHeaders()}],
+["control+alt+shift+c", {help: "all cells in row become column header cells", command: c => c.setColumnHeaders()}],
+["control+alt+shift+r", {help: "all cells in column become row header cells", command: c => c.setRowHeaders()}],
 
 ["control+o", {help: "open", command: c => c.load()}],
 ["control+s", {help: "save", command: c => c.save()}],

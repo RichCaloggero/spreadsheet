@@ -118,7 +118,7 @@ return this.recalculate([name]);
 } // setCellContents
 
 setInput (name, input, role = "") {
-input = input.toString().trim();
+input = input?.toString().trim() ?? "";
 //console.log("setInput: ", name, input, role);
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
@@ -131,6 +131,7 @@ value: input
 }; // cell
 
 cell.input = input;
+cell.role = role;
 this.#cells.set(name, cell);
 //console.log("setInput: initial cell ", cell);
 
