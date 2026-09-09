@@ -15,7 +15,10 @@ export class Controller {
 constructor (model, view, readFile, writeFile, helpDialog) {
 this.#model = model;
 this.#view = view;
+
+model.setGridSize(view.rowCount, view.columnCount);
 view.bind("keydown", e => keydownHandler(e, this));
+
 this.#readFile = readFile;
 this.#writeFile = writeFile;
 
@@ -205,7 +208,7 @@ try {
 //console.log("- entry.command: ", entry.command);
 entry.command(this);
 } catch (e) {
-//console.log(e);
+console.log(e);
 this.#view.statusMessage(e);
 } // try
 
@@ -299,26 +302,11 @@ this.#view.statusMessage("Autosum has no selection.");
 } // class
 
 
-/// commands
+/// helpers
 
 function displayHelpDialog (controller) {
 controller.displayHelpDialog();
 } // displayHelpDialog
-
-
-
-
-
-
-
-
-
-
-
-
-/// helpers
-
-
 
 function rowSegment (r, c1, c2) {
 return sequence(c1,c2)
@@ -334,24 +322,6 @@ function sequence (a, b) {
 return Array.from({length: Math.abs(a-b) + 1}, (_,i) => i + Math.min(a,b));
 } // sequence
 
-/// keyboard handler
-
-
-
-
-function keydownHandler (e, controller) {
-const key = new Key(e).toString();
-if (key.length === 0) return false;
-//console.log("keydown: ", key);
-const label =  controller.cursor;
-
-//console.log("keydown: ", key, label);
-if (controller.execute(key)) {
-e.preventDefault();
-return;
-} // if
-} // keydownHandler
-
 
 function rangeType (l1, l2) {
 const [r1, c1] = parseLabel(l1), [r2, c2] = parseLabel(l2);
@@ -366,4 +336,21 @@ const x1 = parseLabel(l1)[coordinate];
 const x2 = parseLabel(l2)[coordinate];
 return x1 < x2? [l1,l2] : [l2,l1];
 } // rangeOrder
+
+
+
+/// keyboard handler
+
+function keydownHandler (e, controller) {
+const key = new Key(e).toString();
+if (key.length === 0) return false;
+//console.log("keydown: ", key);
+const label =  controller.cursor;
+
+//console.log("keydown: ", key, label);
+if (controller.execute(key)) {
+e.preventDefault();
+return;
+} // if
+} // keydownHandler
 

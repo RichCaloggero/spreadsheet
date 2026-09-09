@@ -1,5 +1,5 @@
 import { not, isFunction } from "./utilities.js";
-import { toLabel, parseLabel } from "./coordinates.js";
+import { toLabel, parseLabel, isLabel } from "./coordinates.js";
 
 export const requireGridcellRole= false;
 const useAriaNotify = false;
@@ -7,14 +7,14 @@ const useAriaNotify = false;
 export class Grid {
 #grid = null;
 #helpDialog = null;
-#maxRowCount = 0;
-#maxColumnCount = 0;
+#rowCount = 0;
+#columnCount = 0;
 
 
 constructor (document, helpDialog, nRows = 100, nColumns = 26) {
 this.#helpDialog = helpDialog;
-this.#maxRowCount = nRows;
-this.#maxColumnCount = nColumns;
+this.#rowCount= nRows;
+this.#columnCount= nColumns;
 
 if (not(document instanceof HTMLDocument)) throw new Error("first argument to Grid() must be a HTMLDocument object");
 
@@ -67,8 +67,8 @@ getColumn(this.currentCell)
 ); // new Set
 } // get column
 
-get maxRowCount () {return this.#maxRowCount;}
-get maxColumnCount () {return this.#maxColumnCount;}
+get rowCount () {return this.#rowCount;}
+get columnCount () {return this.#columnCount;}
 get helpDialog() {return this.#helpDialog;}
 get value () {return this.getValue(this.cursor);}
 get formula () {return this.getFormula(this.cursor);}
@@ -80,9 +80,9 @@ getIsEditing (label) {return this.labelToCell(label).hasAttribute("data-editing"
 
 has (label) {
 //console.log("has: ", label);
-if (not(label) || typeof(label) !== "string") return false;
+if (not(label) || typeof(label) !== "string" || not(isLabel(label))) return false;
 const [r,c] = parseLabel(label);
-return r > 0 && r <= this.maxRowCount && c > 0 && c <= this.maxColumnCount;
+return r > 0 && r <= this.#rowCount && c > 0 && c <= this.#columnCount;
 } // has
 
 

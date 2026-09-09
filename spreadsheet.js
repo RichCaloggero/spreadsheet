@@ -1,9 +1,10 @@
 import { not, isFormula } from "./utilities.js";
-import { parseLabel, toLabel } from "./coordinates.js";
+import { isLabel, toLabel, parseLabel } from "./coordinates.js";
 
 class CellError {
 static #codes = new Map([
 ["parse", "cannot parse formula"],
+["grid","outside grid "],
 ["evaluation", "formula evaluation"],
 ["ref", "bad ref() expression: cell references like a1 not allowed"],
 ["circular", "circular reference (i.e. a1 refers to a2 refers to a1)"],
@@ -37,9 +38,16 @@ export class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
 #dependents = new Map();
+#rowCount = 0;
+#columnCount = 0;
 
 constructor () {
 } // constructor
+
+setGridSize (rowCount, columnCount) {
+  this.#rowCount = rowCount;
+  this.#columnCount = columnCount;
+} // setGridSize
 
 has (name) {return this.#cells.has(name);}
 get allNames () {return [...this.#cells.keys()];}
@@ -158,9 +166,14 @@ return cell;
 //console.log("setInput: formula ", cell.code);
 
 for (const symbolName of getSymbols(cell.formula)) {
-const result = parseLabel(symbolName);
-if (result.error) {
+if (not(isLabel(symbolName))) {
 cell.value = new CellError("parse", `bad cell label: ${symbolName}`);
+return cell;
+} // if
+
+const [r,c] = parseLabel(symbolName);
+if (r > this.#rowCount || c > this.#columnCount) {
+cell.value = new CellError("grid", `${symbolName} -> (${this.#rowCount}, ${this.#columnCount}).`);
 return cell;
 } // if
 
@@ -371,7 +384,12 @@ return new CellError("parse", `${e} : "${text}"`);
 } // createFormula
 
 function evaluateRefs (node, cell) {
-const [row, column] = parseLabel(cell.name);
+if (not(isLabel(cell.name))) {
+  cell.value = new CellError("parse", cell.name);
+  return null;
+} // if
+
+  const [row, column] = parseLabel(cell.name);
 const argScope = createInitialScope(row, column);
 
 const isRef = n => n.isFunctionNode && n.fn.name === "ref";
