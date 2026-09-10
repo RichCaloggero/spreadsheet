@@ -38,6 +38,9 @@ export class Spreadsheet {
 #cells = new Map();
 #precedents = new Map();
 #dependents = new Map();
+#headerRows = new Set();
+#headerColumns = new Set();
+
 #rowCount = 0;
 #columnCount = 0;
 
@@ -55,6 +58,14 @@ get allNames () {return [...this.#cells.keys()];}
 get allCells () {
 return [...this.#cells.keys()];
 } // allCells
+
+addHeaderRow (r) {this.#headerRows.add(r);}
+deleteHeaderRow (r) {this.#headerRows.delete(r);}
+addHeaderColumn (c) {this.#headerColumns.add(c);}
+deleteHeaderColumn (c) {this.#headerColumns.delete(c);}
+hasHeaderRow (r) {return this.#headerRows.has(r);}
+hasHeaderColumn (c) {return this.#headerColumns.has(c);}
+
 
 cellContents (name) {
   const cell = name? this.#cells.get(name) : null;
@@ -101,7 +112,7 @@ this.#precedents.clear();
 this.#dependents.clear();
 } // clear
 
-setRole (name, role = "gridcell") {
+setRole (name, role) {
 if (this.#cells.has(name)) {
 //console.log("spreadsheet.setRole: ", name);
 this.#cells.get(name).role = role;
@@ -341,7 +352,6 @@ this.#cells.delete(name);
 //return this.recalculate([name]);
 } // #deleteCell
 
-has (name) {return this.#cells.has(name);}
 
 /// test
 

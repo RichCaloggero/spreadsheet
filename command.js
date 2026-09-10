@@ -69,7 +69,7 @@ this.#writeFile("spreadsheet.dat", text);
 
 } catch (e) {
 //console.log(e);
-view.statusMessage(e);
+this.#view.statusMessage(e);
 } // try
 
 } // save
@@ -116,6 +116,12 @@ errors |= this.#view.displayCellContents(this.#model.cellContents(name));
 
 return errors;
 } // renderCells
+
+#renderHeaders (type, role) {
+    const labels = this.#view[type === "row"? "row" : "column"];
+
+    for (const label of labels) this.#view.setCellRole(label, role);
+} /// #renderHeaders
 
 startEditing (text) {this.#view.startEditing(text);}
 
@@ -173,17 +179,25 @@ const data = (redo? this.#redoStack : this.#undoStack)
 .pop();
 //console.log("- data: ", data);
 
-const labels = [];
+if (data.modifyHeaders) {
+this.#moveTo(data.cursor);
+this.toggleHeader(data.modifyHeaders.type, false); // do not create an undo entry
+this.#view.statusMessage(`${redo? "redo" : "undo"} toggle ${data.modifyHeaders.type === "row"? "column" : "row"} headers.`);
+
+} else {
+    const labels = [];
 for (const cell of data.cells) {
 //console.log("- cell: ", cell);
 labels.push(cell.label);
 
 const input = redo? cell.input : cell.oldInput;
+const role = redo? cell.role : cell.oldRole;
+
+   
 if (input === null) {
 //console.log("- deleting ", cell.label);
 this.#model.deleteCell(cell.label);
 } else {
-const role = redo? cell.role : cell.oldRole;
 //console.log("- input: ", input, role);
 this.#model.setInput(cell.label, input, role);
 } // if
@@ -194,6 +208,7 @@ this.#renderCells(this.#model.recalculate(labels));
 //console.log("moveTo: ", data.cursor);
 if (data.cursor) this.#moveTo(data.cursor);
 this.#view.statusMessage(`${redo? "redo" : "undo"} ${data.type} ${data.type === "fill"? ": " + data.cells.length + " cells" : ""}`);
+} // if
 
 (redo? this.#undoStack : this.#redoStack)
 .push (data);
@@ -223,6 +238,37 @@ if (mc === cc) return new Set (columnSegment(mr, cr, mc));
 return null;              // off-axis
 } // #getRange
 
+toggleHeader (type, createUndoEntry = true) {
+if (type !== "row" && type !== "column") throw new Error(`bad type arg to Controller.toggleHeader: ${type}`);
+    const [r,c] = parseLabel(this.#view.cursor);
+    const x = type === "row"? r : c;
+     const initialState = this.#model[type === "row"? "hasHeaderRow" : "hasHeaderColumn"](x);
+    const newState = not(initialState);
+
+    // if row  or column in set, then set role to null or gridcell, depending on the requireGridcellRole parameter
+// otherwise, set it to columnheader or roleheader depending on type arg
+const role = initialState? (requireGridcellRole? "gridcell" : "")
+: (type === "row"? "columnheader" : "rowheader");
+
+    if (initialState)
+    this.#model[type === "row"? "deleteHeaderRow" : "deleteHeaderColumn"](x);
+    else this.#model[type === "row"? "addHeaderRow" : "addHeaderColumn"](x);
+
+    this.#renderHeaders(type, role);
+    if (createUndoEntry) this.#undoStack.push({modifyHeaders: {type: type, old: initialState, new: newState}, cursor: this.#view.cursor});
+} // toggleHeaders
+
+toggleHeaderColumn () {
+const [r,c] = parseLabel(this.#view.cursor);
+    const state = this.#model.hasHeaderColumn(c);
+    
+    if (state) this.#model.deleteHeaderColumn(c);
+    else this.#model.addHeaderColumn(c);
+
+    this.#renderCells([...this.#view.column]);
+this.#undoStack.push({headerColumn: {column: c, old: state, new: not(state)}, cursor: this.#view.cursor});
+} // toggleHeaderColumn
+
 setColumnHeaders () {
 const labels= [...this.#view.row];
 //console.log("setColumnHeaders: ", labels.length);
@@ -242,7 +288,7 @@ this.#model.setInput(label, input, role);
 } // for
 
 this.#renderCells(labels);
-this.#undoStack.push({cells: changes, type: "toggle column headers", cursor: null});
+this.#undoStack.push({cells: changes, roleOnly: true, type: "toggle column headers", cursor: null});
 } // setColumnHeaders
 
 setRowHeaders () {
@@ -261,7 +307,7 @@ this.#model.setInput(label, input, role);
 } // for
 
 this.#renderCells(labels);
-this.#undoStack.push({cells: changes, type: "toggle row headers", cursor: null});
+this.#undoStack.push({cells: changes, roleOnly: true, type: "toggle row headers", cursor: null});
 } // setRowHeaders
 
 #clearRange () {

@@ -13,7 +13,7 @@ const view = new Grid(document, helpDialog);
 document.querySelector(".spreadsheet").appendChild(view.dom);
 document.body.appendChild(helpDialog);
 
-const readFile = initializeLoader(document);
+const readFile = initializeLoader(document, view);
 const controller = new Controller (model, view, readFile, writeFile, helpDialog);
 } // main
 

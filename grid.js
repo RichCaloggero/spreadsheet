@@ -50,7 +50,7 @@ focus () {this.#grid.focus();}
 
 get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
-get cursor () {  return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
+get cursor () {  	return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
 set cursor (label) {this.#grid.activeDescendantElement = this.labelToCell(label);}
 
 get row () {
@@ -93,8 +93,8 @@ const cell = this.labelToCell(label);
 
 if (cell && cell !== oldCell) {
 this.#setCurrentCell(cell);
-	this.#announceCell(cell);
-	    return true;
+this.#announceCell(cell);
+	return true;
 } // if
 
 return false;
@@ -220,6 +220,10 @@ this.statusMessage("end editing.");
 
 return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role};
 } // endEditing
+
+setCellRole (label, role) {
+this.labelToCell(label).role = role;
+} // setCellRole
 
 
 displayCellContents (data) {
