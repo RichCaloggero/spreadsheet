@@ -51,7 +51,7 @@ focus () {this.#grid.focus();}
 get dom () {return this.#grid;}
 get currentCell () {return this.#grid.ariaActiveDescendantElement;}
 get cursor () {  	return this.#grid.ariaActiveDescendantElement?.dataset.label ?? null;}
-set cursor (label) {this.#grid.activeDescendantElement = this.labelToCell(label);}
+set cursor (label) {this.setCurrentCell(this.labelToCell(label))}
 
 get row () {
 return new Set(
@@ -333,8 +333,6 @@ displayHelpDialog () {this.#helpDialog.showModal();}
 
 /// Grid helpers
 
-function getRowIndex (cell) {return cell.parentElement.cellIndex;}
-function getColumnIndex (cell) {return cell.cellIndex;}
 
 function getRow (cell) {return [...cell.parentElement.children];}
 
@@ -352,24 +350,8 @@ function isSameColumn (cell1, cell2) {
 return cell1.cellIndex === cell2.cellIndex;
 } // isSameColumn
 
-function cellsBetween (a, index1, index2) {
-if (index1 > index2) {
-const t = index1;
-index1 = index2;
-index2 = t;
-} // if
 
-return a.filter((cell, i) => i >= index1 && i <= index2);
-} // cellsBetween
 
-function expandRange (range) {
-// just stick in contents for now
-return [...range.range].join(", ");
-} // expandRange
-
-function emptyRange () {
-return {type: "empty", range: new Set([])};
-} // #emptyRange
 
 function rowIndex (cell) {return cell.parentElement.rowIndex;}
 function columnIndex (cell) {return cell.cellIndex;}
