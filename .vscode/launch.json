@@ -1,7 +1,15 @@
 {
   "version": "0.2.0",
   "configurations": [
-    {
+{
+  "name": "Attach to Integrated Browser",
+  "request": "attach",
+  "type": "editor-browser",
+  "url": "http://localhost:8000/ui.html",
+      "webRoot": "${workspaceFolder}"
+},    
+    
+{
       "name": "Launch Firefox against localhost",
       "type": "firefox",
       "request": "launch",
@@ -9,7 +17,8 @@
       "url": "http://localhost:8000/ui.html",
       "webRoot": "${workspaceFolder}",
 
-        "reloadOnChange": {
+        
+       "reloadOnChange": {
       "watch": [ "${workspaceFolder}/**/*.js" ],
   },
   

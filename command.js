@@ -118,7 +118,7 @@ return errors;
 } // renderCells
 
 #renderHeaders (type, role) {
-    const labels = this.#view[type === "row"? "row" : "column"];
+    const labels = [...this.#view[type === "row"? "row" : "column"]].slice(1,-1);
 
     for (const label of labels) this.#view.setCellRole(label, role);
 } /// #renderHeaders
@@ -141,10 +141,10 @@ this.#model.setInput(label, input, role);
 
 this.#renderCells(this.#model.recalculate(labels));
 
-this.#undoStack.push({cells: changes, type: labels.length > 1? "fill" : "edit", cursor: this.#view.cursor});
-this.#redoStack = [];
+this.#pushUndoEntry({cells: changes, type: labels.length > 1? "fill" : "edit", cursor: this.#view.cursor});
 if (    this.#mark) this.#clearRange();
 } // endEditing
+
 
 deleteCells () {
 const label = this.#view.cursor;
@@ -163,10 +163,15 @@ this.#view.cleanupDeletedCell(label);
 
 this.#renderCells(this.#model.recalculate(labels));
 if (this.#mark) this.#clearRange();
-this.#undoStack.push({cells: changes, type: "delete", cursor: this.#view.cursor});
+this.#pushUndoEntry({cells: changes, type: "delete", cursor: this.#view.cursor});
 
 this.#view.statusMessage(`${labels.length} cell${labels.length> 1? "s" : ""} deleted.`);
 } // delete
+
+#pushUndoEntry (data) {
+    this.#undoStack.push(data);
+    this.#redoStack = [];
+} // #pushUndoEntry
 
 undo () {this.#replay();}
 redo () {this.#replay(true);}
@@ -255,60 +260,9 @@ const role = initialState? (requireGridcellRole? "gridcell" : "")
     else this.#model[type === "row"? "addHeaderRow" : "addHeaderColumn"](x);
 
     this.#renderHeaders(type, role);
-    if (createUndoEntry) this.#undoStack.push({modifyHeaders: {type: type, old: initialState, new: newState}, cursor: this.#view.cursor});
+    if (createUndoEntry) this.#pushUndoEntry({modifyHeaders: {type: type, old: initialState, new: newState}, cursor: this.#view.cursor});
 } // toggleHeaders
 
-toggleHeaderColumn () {
-const [r,c] = parseLabel(this.#view.cursor);
-    const state = this.#model.hasHeaderColumn(c);
-    
-    if (state) this.#model.deleteHeaderColumn(c);
-    else this.#model.addHeaderColumn(c);
-
-    this.#renderCells([...this.#view.column]);
-this.#undoStack.push({headerColumn: {column: c, old: state, new: not(state)}, cursor: this.#view.cursor});
-} // toggleHeaderColumn
-
-setColumnHeaders () {
-const labels= [...this.#view.row];
-//console.log("setColumnHeaders: ", labels.length);
-const changes = [];
-let role = this.#model.cellContents(labels[1]).role;
-//console.log("- model's role: ", role);
-role = role === "columnheader"? "gridcell" : "columnheader";
-if (role === "gridcell" && not(requireGridcellRole )) role = "";
-//console.log("- role: ", role);
-
-for (const label of labels) {
-if (label === "a1") continue;
-const oldData = this.#model.cellContents(label);
-const input = oldData.input ?? null;
-changes.push({label, input, role, oldInput: input, oldRole: oldData.role});
-this.#model.setInput(label, input, role);
-} // for
-
-this.#renderCells(labels);
-this.#undoStack.push({cells: changes, roleOnly: true, type: "toggle column headers", cursor: null});
-} // setColumnHeaders
-
-setRowHeaders () {
-const labels = [...this.#view.column];
-const changes = [];
-let role = this.#model.cellContents(labels[1]).role;
-role = role === "rowheader"? "gridcell" : "rowheader";
-if (role === "gridcell" && not(requireGridcellRole )) role = "";
-
-for (const label of labels) {
-if (label === "a1") continue;
-const oldData = this.#model.cellContents(label);
-const input = oldData.input ?? null;
-changes.push({label, input, role, oldInput: input, oldRole: oldData.role});
-this.#model.setInput(label, input, role);
-} // for
-
-this.#renderCells(labels);
-this.#undoStack.push({cells: changes, roleOnly: true, type: "toggle row headers", cursor: null});
-} // setRowHeaders
 
 #clearRange () {
 this.#mark = null;
