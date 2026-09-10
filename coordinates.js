@@ -14,6 +14,7 @@ if (not(result)) throw new Error(`parseLabel: ${label} is an invalid label`);
 const c = result[1];
 const r = result[2];
 
+// labels like "zz1" will be remapped to column 0 rather than the correct column (fix later)
 const column = columnLabels.indexOf(c)+1;
 const row = Number(r);
 

@@ -137,7 +137,7 @@ this.#renderCells(this.#model.recalculate(labels));
 
 this.#undoStack.push({cells: changes, type: labels.length > 1? "fill" : "edit", cursor: this.#view.cursor});
 this.#redoStack = [];
-if (this.#mark) this.#clearRange();
+if (    this.#mark) this.#clearRange();
 } // endEditing
 
 deleteCells () {

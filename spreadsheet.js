@@ -126,6 +126,8 @@ return this.recalculate([name]);
 } // setCellContents
 
 setInput (name, input, role = "") {
+if (not(isLabel(name))) throw new Error(`setInput: ${name} is an invalid label`);
+
 input = input?.toString().trim() ?? "";
 //console.log("setInput: ", name, input, role);
 
@@ -171,8 +173,7 @@ cell.value = new CellError("parse", `bad cell label: ${symbolName}`);
 return cell;
 } // if
 
-const [r,c] = parseLabel(symbolName);
-if (r > this.#rowCount || c > this.#columnCount) {
+if (not(isInGrid(symbolName, this.#rowCount, this.#columnCount))) {
 cell.value = new CellError("grid", `${symbolName} -> (${this.#rowCount}, ${this.#columnCount}).`);
 return cell;
 } // if
@@ -257,7 +258,7 @@ return {order, cycles};
 } // #topologicalSort
 
 #evaluate (cell) {
-if (not(cell)) return;
+if (not(cell) || cell.value instanceof CellError) return;
 //console.log("#evaluate: ", cell);
 
 if (cell.hasFormula) {
@@ -281,8 +282,8 @@ cell.value = this.#evaluateCode(cell.code, scope);
 cell.value = new CellError("evaluation", e);
 		} // try
 } // if
-//console.log("#evaluate: cell.value = ", cell.value);
 
+console.log("#evaluate: cell.value = ", cell.value);
 } // #evaluate
 
 #evaluateCode (code, scope) {
@@ -433,18 +434,7 @@ return node
 .map(node => node.name.trim());
 } // getSymbols
 
-function getFunctions (node) {
-return node.filter(node => node.isfunctionNode);
-} // getFunctions
-
-
-function replaceSymbols (node, newSymbols) {
-return node.transform(function (node, path, parent) {
-if (node.isSymbolNode ) {
-return new math.SymbolNode(newSymbols.has(node.name)? newSymbols.get(node.name) : node.name);
-} else {
-return node
-} // if
-}); // transform
-} // replaceSymbols
-
+function isInGrid (text, rowCount, columnCount) {
+const [r, c] = parseLabel(text);
+return r > 0 && r <= rowCount && c > 0 && c <= columnCount;
+} // isInGrid
