@@ -59,6 +59,8 @@ get allNames () {return [...this.#cells.keys()];}
 get allCells () {
 return [...this.#cells.keys()];
 } // allCells
+hasData () {return this.allCells.length > 0 && this.#headerRows.size > 0 && this.#headerColumns.size > 0;}
+
 
 addHeaderRow (r) {this.#headerRows.add(r);}
 deleteHeaderRow (r) {this.#headerRows.delete(r);}
@@ -96,29 +98,41 @@ if (not(role) && requireGridcellRole) role = "gridcell";
 return result;
 } // cellContents
 
-load (entries) {
+load (modelData) {
 	this.clear();
 //console.log("spreadsheet cleared.");
-//console.log(entries);
+//console.log(modelData);
 
-for (const data of entries) {
+for (const data of modelData.cells) {
 	const cell = this.setInput(data.name, data.input, data.role);
 } // for
+
+this.#headerRows = new Set(modelData.headerRows);
+this.#headerColumns = new Set(modelData.headerColumns);
 
 this.recalculate([...this.#cells.keys()], false);
 } // load
 
 getData () {
-const data = [];
-for (const cell of this.#cells.values()) data.push(this.cellContents(cell.name));
+const cells = [];
+for (const cell of this.#cells.values()) cells.push(this.cellContents(cell.name));
 
-return data;
+const headerRows = [...this.#headerRows];
+const headerColumns = [...this.#headerColumns];
+
+return {
+  version: "1.0",
+  cells,
+  headerRows, headerColumns
+};
 } // getData
 
 clear () {
 this.#cells.clear();
 this.#precedents.clear();
 this.#dependents.clear();
+this.#headerRows.clear();
+this.#headerColumns.clear();
 } // clear
 
 setRole (name, role) {
@@ -291,7 +305,7 @@ for (const name of this.#precedentsOf(cell.name)) {
 const value = this.#cells.has(name)? this.#cells.get(name).value : "";
 	if (value instanceof CellError) {
 cell.value = value;
-console.log("precedence has error: ", cell.value);
+//console.log("precedence has error: ", cell.value);
 return;
 } // if
 } // for

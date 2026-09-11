@@ -59,7 +59,7 @@ this.#view.focus();
 } // load
 
 save () {
-if (this.#model.allCells.length === 0) return;
+if (not(this.#model.hasData)) return;
 const data = this.#model.getData();
 
 try {
@@ -108,7 +108,7 @@ moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
 moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
 #renderCells (names = this.#model.allCells) {
-console.log("renderCells: ", names);
+//console.log("renderCells: ", names);
 let errors = false;
 
 for (const name of names) {
@@ -118,11 +118,6 @@ for (const name of names) {
 return errors;
 } // renderCells
 
-#renderHeaders (type, role) {
-    const labels = [...this.#view[type === "row"? "row" : "column"]].slice(1,-1);
-
-    for (const label of labels) this.#view.setCellRole(label, role);
-} /// #renderHeaders
 
 startEditing (text) {this.#view.startEditing(text);}
 
@@ -229,7 +224,7 @@ try {
 //console.log("- entry.command: ", entry.command);
 entry.command(this);
 } catch (e) {
-console.log(e);
+//console.log(e);
 this.#view.statusMessage(e);
 } // try
 
