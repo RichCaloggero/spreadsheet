@@ -21,8 +21,9 @@ const row = Number(r);
 return [row, column];
 } // parseLabel
 
+// this function enforces the single letter label restriction; must fix if removing that restriction
 export function toLabel (row, column) {
-if (                row < 1 || column < 1) return null;
+if (                row < 1 || column < 1 || column > 26) return null;
 return `${columnLabels.charAt(column-1)}${row}`;
 } // toLabel
 

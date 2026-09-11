@@ -78,6 +78,7 @@ moveBy (dRow, dCol) {
 //console.log("moveBy: ", dRow, dCol);
 const [row, col] = parseLabel(this.#view.cursor);
 //console.log("- cursor: ", row, col);
+if (row + dRow > this.#view.rowCount || col + dCol > this.#view.columnCount) return;
 return this.#moveTo(toLabel(row + dRow, col + dCol));
 } // moveBy
 
@@ -107,11 +108,11 @@ moveToStartOfGrid () { this.#moveTo(this.#view.firstLabelInGrid(this.cursor)); }
 moveToEndOfGrid () { this.#moveTo(this.#view.lastLabelInGrid(this.cursor)); }
 
 #renderCells (names = this.#model.allCells) {
-//console.log("renderCells: ", names);
+console.log("renderCells: ", names);
 let errors = false;
 
 for (const name of names) {
-errors |= this.#view.displayCellContents(this.#model.cellContents(name));
+    errors |= this.#view.displayCellContents(this.#model.cellContents(name));
 } // for
 
 return errors;
@@ -250,16 +251,11 @@ if (type !== "row" && type !== "column") throw new Error(`bad type arg to Contro
      const initialState = this.#model[type === "row"? "hasHeaderRow" : "hasHeaderColumn"](x);
     const newState = not(initialState);
 
-    // if row  or column in set, then set role to null or gridcell, depending on the requireGridcellRole parameter
-// otherwise, set it to columnheader or roleheader depending on type arg
-const role = initialState? (requireGridcellRole? "gridcell" : "")
-: (type === "row"? "columnheader" : "rowheader");
-
     if (initialState)
     this.#model[type === "row"? "deleteHeaderRow" : "deleteHeaderColumn"](x);
     else this.#model[type === "row"? "addHeaderRow" : "addHeaderColumn"](x);
 
-    this.#renderHeaders(type, role);
+    this.#renderCells(this.#view[type]);
     if (createUndoEntry) this.#pushUndoEntry({modifyHeaders: {type: type, old: initialState, new: newState}, cursor: this.#view.cursor});
 } // toggleHeaders
 

@@ -18,20 +18,6 @@ const controller = new Controller (model, view, readFile, writeFile, helpDialog)
 } // main
 
 
-/*function save (data, view) {
-try {
-const jsonText = JSON.stringify(data);
-//console.log("ui.save: ", jsonText);
-saveFile("spreadsheet.dat", jsonText, document);
-} catch (e) {
-//console.log(e);
-view.statusMessage(e);
-} // try
-} // save
-*/
-
-
-
 function createHelpDialog (document) {
 const dialog = document.createElement("dialog");
     dialog.setAttribute("popover", true);

@@ -234,6 +234,7 @@ const cell = this.labelToCell(name);
 
 if (input === null) {
 this.cleanupDeletedCell(name);
+if (role === "rowheader" || role === "columnheader") cell.role = role;
 return false;
 } // if
 

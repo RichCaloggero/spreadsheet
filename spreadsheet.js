@@ -1,5 +1,6 @@
 import { not, isFormula } from "./utilities.js";
 import { isLabel, toLabel, parseLabel } from "./coordinates.js";
+import { requireGridcellRole } from "./grid.js";
 
 class CellError {
 static #codes = new Map([
@@ -69,14 +70,22 @@ hasHeaderColumn (c) {return this.#headerColumns.has(c);}
 
 cellContents (name) {
   const cell = name? this.#cells.get(name) : null;
-  if (not(cell)) return {name, input: null, role: ""};
+  
+  // calculate role here because if cell isn't in map, we still want to render with correct role of columnheader, or rowheader if set
+  const [r, c] = parseLabel(name);
+const role = this.hasHeaderRow(r) && this.hasHeaderColumn(c)? ""
+: this.hasHeaderRow(r)? "columnheader"
+: this.hasHeaderColumn(c)? "rowheader"
+: "";
+if (not(role) && requireGridcellRole) role = "gridcell";
+
+  if (not(cell)) return {name, input: null, role};
 
   const value = cell.value;
   const failed = value instanceof CellError;
-
   const result = {
     name: cell.name,
-    role: cell.role,
+    role,
     input: cell.input,
     hasFormula: isFormula(cell.input),
     value: failed? String(value) : value ?? "",
@@ -159,6 +168,8 @@ this.#cells.set(name, cell);
 this.#cleanupDependencies(cell.name);
 
 if (isFormula(input)) {
+cell.code = null;
+
 cell.formula = createFormula(input.slice(1));
 if (cell.formula instanceof CellError) {
 cell.value = cell.formula;
@@ -181,11 +192,13 @@ return cell;
 for (const symbolName of getSymbols(cell.formula)) {
 if (not(isLabel(symbolName))) {
 cell.value = new CellError("parse", `bad cell label: ${symbolName}`);
+cell.code = null;
 return cell;
 } // if
 
 if (not(isInGrid(symbolName, this.#rowCount, this.#columnCount))) {
 cell.value = new CellError("grid", `${symbolName} -> (${this.#rowCount}, ${this.#columnCount}).`);
+cell.code = null;
 return cell;
 } // if
 
@@ -269,10 +282,10 @@ return {order, cycles};
 } // #topologicalSort
 
 #evaluate (cell) {
-if (not(cell) || cell.value instanceof CellError) return;
+if (not(cell)) return;
 //console.log("#evaluate: ", cell);
 
-if (cell.hasFormula) {
+if (cell.hasFormula && cell.code) {
 for (const name of this.#precedentsOf(cell.name)) {
 //console.log("- examine precedent ", name);
 const value = this.#cells.has(name)? this.#cells.get(name).value : "";
@@ -287,14 +300,14 @@ return;
 //console.log("- scope: ", scope);
 try {
 cell.value = this.#evaluateCode(cell.code, scope);
-	console.log("- cell.value = ", cell.value);
+//	console.log("- cell.value = ", cell.value);
 	} catch (e) {
 //console.log("- - catch: ", e);
 cell.value = new CellError("evaluation", e);
 		} // try
 } // if
 
-console.log("#evaluate: cell.value = ", cell.value);
+//console.log("#evaluate: cell.value = ", cell.value);
 } // #evaluate
 
 #evaluateCode (code, scope) {
@@ -316,7 +329,7 @@ const cell = this.#cells.get(name);
 scope.set(name, cell? cell.value : "");
 } // for
 
-console.log("created scope for ", names, "; ", scope);
+//console.log("created scope for ", names, "; ", scope);
 return scope;
 } // #createScope
 
