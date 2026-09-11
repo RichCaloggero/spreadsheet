@@ -73,7 +73,7 @@ hasHeaderColumn (c) {return this.#headerColumns.has(c);}
 cellContents (name) {
   const cell = name? this.#cells.get(name) : null;
   
-  // calculate role here because if cell isn't in map, we still want to render with correct role of columnheader, or rowheader if set
+  // calculate role here because if cell isn't in map, we still want to render with correct role of columnheader, or rowheader if set; role is not property of cell
   const [r, c] = parseLabel(name);
 const role = this.hasHeaderRow(r) && this.hasHeaderColumn(c)? ""
 : this.hasHeaderRow(r)? "columnheader"
@@ -135,39 +135,28 @@ this.#headerRows.clear();
 this.#headerColumns.clear();
 } // clear
 
-setRole (name, role) {
-if (this.#cells.has(name)) {
-//console.log("spreadsheet.setRole: ", name);
-this.#cells.get(name).role = role;
-} // if
-} // setRole
 
-
-setCellContents (name, input, role) {
+setCellContents (name, input) {
 if (not(name)) {
 throw new Error("setCellContents: cell label missing or invalid.");
 } // if
 
-const old = this.#cells.get(name);
-const oldInput = old? old.input : null;
-const oldRole = old? old.role : null;
 
-
-const cell = this.setInput(name, input, role);
+const cell = this.setInput(name, input);
 //console.log("setInput: ", cell);
 
 return this.recalculate([name]);
 } // setCellContents
 
-setInput (name, input, role = "") {
+setInput (name, input) {
 if (not(isLabel(name))) throw new Error(`setInput: ${name} is an invalid label`);
 
 input = input?.toString().trim() ?? "";
-//console.log("setInput: ", name, input, role);
+//console.log("setInput: ", name, input);
 
 const cell = this.#cells.has(name)? this.#cells.get(name)
 : {
-name, input, role,
+name, input,
 formula: "",
 code: null,
 get hasFormula () {return isFormula(this.input);},
@@ -175,9 +164,7 @@ value: input
 }; // cell
 
 cell.input = input;
-cell.role = role;
 this.#cells.set(name, cell);
-//console.log("setInput: initial cell ", cell);
 
 this.#cleanupDependencies(cell.name);
 

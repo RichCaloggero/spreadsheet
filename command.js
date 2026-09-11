@@ -224,7 +224,7 @@ try {
 //console.log("- entry.command: ", entry.command);
 entry.command(this);
 } catch (e) {
-//console.log(e);
+console.log(e);
 this.#view.statusMessage(e);
 } // try
 

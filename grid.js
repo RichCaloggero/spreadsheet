@@ -218,12 +218,10 @@ cell.removeAttribute("data-old");
 this.focus();
 this.statusMessage("end editing.");
 
-return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role};
+// role shouldn't be returned here; watch for breakage
+ return {label: this.cellToLabel(cell), input: cell.textContent};
+//return {label: this.cellToLabel(cell), input: cell.textContent, role: cell.role};
 } // endEditing
-
-setCellRole (label, role) {
-this.labelToCell(label).role = role;
-} // setCellRole
 
 
 displayCellContents (data) {
@@ -235,12 +233,14 @@ const cell = this.labelToCell(name);
 if (input === null) {
 this.cleanupDeletedCell(name);
 if (role === "rowheader" || role === "columnheader") cell.role = role;
+else if(requireGridcellRole) cell.role = "gridcell";
+else cell.removeAttribute("role");
 return false;
 } // if
 
-
 cell.textContent = value;
-cell.role = role;
+if (role) cell.role = role;
+else cell.removeAttribute("role");
 
 if (data.error) {
 cell.ariaDescription = data.description;

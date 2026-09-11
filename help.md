@@ -94,3 +94,13 @@ selected. The ref() function generates cell references from row and column indec
 Thus ref(_r, 1) would reference all the cells in the defined row range, where column is 1, i.e. a1, a2, a3, etc.
 
 Note that ref is row first, but labels are column first. For instance: a22 is the same as ref(22, 1).
+
+### More about formulas
+
+- press f2 to begin editing a cell (see keyboard help below)
+- begin formulas with an equals sign "="
+- common operators: "+", "-", "*", "/"
+- exponentiation via uparrow: "2^2" = 2 squared = 4
+- comparisons: "<", ">", "==", "<=", ">="
+- references like "a1", "b3", "c4", etc become the value of that cell, or zero if the cell doesn't exist
+ 
