@@ -59,6 +59,20 @@ You've now created a range of type row if all cells lie in the same
 row, or of type column if they lie in the same column. Rectangular
 ranges are not allowed.  If you create a row range, then move to the next row, the range is automatically cleared, and the fact is announced.
 
+### Autosum
+
+To sum the values of cells in a range:
+
+1. define a row or column range
+2. press alt+=, followed by enter
+
+The alt+= prodeces a edit box with the formula representing the sum of all the cells in the range. Pressing enter commits this and creates a new cell just to the right (for row ranges), or just below (for column ranges), containing the sum. As is always the case when a commmand runs over a range, the range is cleared.
+
+### Undo
+
+Pressing control+z undoes the last operation. This is especially useful on commands that modify ranges. For example, if you want to change what the autosum does, press control+z after running the autosum, and then modify as desired.
+
+
 ### Autofilling
 
 To make repetative tasks more manageable, we have implemented
@@ -94,6 +108,14 @@ selected. The ref() function generates cell references from row and column indec
 Thus ref(_r, 1) would reference all the cells in the defined row range, where column is 1, i.e. a1, a2, a3, etc.
 
 Note that ref is row first, but labels are column first. For instance: a22 is the same as ref(22, 1).
+
+### ref and autosum example
+
+1. move to cell a1 and select a row range of 6 cells (a1 through f1)
+2. press f2 and type "=_c", followed by enter
+3. press alt+=, followed by enter
+
+You should have the numbers 1 through 6 in cells a1 through f1, and the number 21 in cell f7.
 
 ### More about formulas
 
