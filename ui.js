@@ -8,6 +8,7 @@ main(document);
 
 function main (document) {
 const model = new Spreadsheet();
+window.model = model;
 const helpDialog = createHelpDialog (document);
 const view = new Grid(document, helpDialog);
 document.querySelector(".spreadsheet").appendChild(view.dom);
@@ -20,18 +21,17 @@ const controller = new Controller (model, view, readFile, writeFile, helpDialog)
 
 function createHelpDialog (document) {
 const dialog = document.createElement("dialog");
-    dialog.setAttribute("popover", true);
-        dialog.setAttribute("closedBy", "any");
-dialog.insertAdjacentHTML("beforeEnd", helpDialog(generateHelpText(generateKeyboardHelp())));
+//dialog.setAttribute("closedBy", "any");
+dialog.insertAdjacentHTML("beforeEnd", generateHelpDialog(generateHelpText(generateKeyboardHelp())));
 dialog.ariaLabelledByElements = [dialog.querySelector(".title")];
 return dialog;
 } // createHelpDialog       
     
-function helpDialog (helpText) {
-    return `<div class="head">
+function generateHelpDialog (helpText) {
+    return `<form method="dialog">
 <h2 class="title">Help</h2>
-<button autofocus onclick="parentElement.parentElement.close();" class="close" aria-label="Close">X</button>
-</div><!-- .head -->
+<button type="submit" autofocus class="close" aria-label="Close">X</button>
+</form><!-- .head -->
 
 <div class="body">
 ${helpText}

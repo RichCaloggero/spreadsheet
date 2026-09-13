@@ -36,7 +36,7 @@ grid.appendChild(row);
 } // for row
 
 
-grid.role = "grid";
+//grid.role = "grid";
 grid.ariaActiveDescendantElement = grid.querySelector("td");
 grid.tabIndex = 0;
 
@@ -328,7 +328,15 @@ if (remove) setTimeout(() => status.textContent = "", 7000);
 }, 70);
 } // statusMessage
 
-displayHelpDialog () {this.#helpDialog.showModal();}
+displayHelpDialog () {
+this.#helpDialog.addEventListener("close", e => {
+setTimeout(() => {
+this.focus();
+this.#announceCell();
+}, 100);
+}, {once: true});
+this.#helpDialog.showModal();
+}
 
 } // class Grid
 
